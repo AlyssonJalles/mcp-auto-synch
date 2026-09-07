@@ -1,0 +1,118 @@
+"""Badge icons shown next to each tool's name in the popover.
+
+Real vendor logos (bundled as small PNGs under mcp_sync/assets/logos/,
+sourced from https://github.com/AlyssonJalles/OmniRoute's public/providers
+icon set and from thesvg.org for the couple of tools missing there) are used
+when available, composited onto a plain white circular backplate for a
+consistent look. Tools without a bundled logo fall back to a flat colored
+monogram badge generated locally, so every tool always gets *some* icon.
+"""
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+
+from PIL import Image, ImageDraw, ImageFont
+
+_SIZE = 40
+_ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets", "logos")
+
+# tool name -> bundled PNG filename under assets/logos/
+_LOGO_FILES = {
+    "Codex": "codex.png",
+    "Claude Code": "claude.png",
+    "Claude Desktop": "claude.png",
+    "Cursor": "cursor.png",
+    "Gemini CLI": "gemini.png",
+    "GitHub Copilot CLI": "copilot.png",
+    "Visual Studio Code": "visual-studio-code.png",
+    "OpenCode": "opencode.png",
+    "Windsurf": "windsurf.png",
+    "Antigravity": "google.png",
+    "Zed": "zed-hosted.png",
+    "Continue": "continue.png",
+    "Roo Code": "roocode.png",
+}
+
+# fallback monogram badges, only used if a bundled logo is missing above.
+_MONOGRAM_BADGES = {
+    "Codex": ((16, 163, 127), "CX"),
+    "Claude Code": ((204, 120, 92), "CC"),
+    "Cursor": ((30, 30, 32), "Cu"),
+    "Gemini CLI": ((66, 133, 244), "Ge"),
+    "GitHub Copilot CLI": ((137, 87, 229), "GH"),
+    "Visual Studio Code": ((0, 122, 204), "VS"),
+    "OpenCode": ((46, 204, 113), "OC"),
+    "Windsurf": ((0, 194, 168), "Ws"),
+    "Antigravity": ((91, 110, 245), "AG"),
+    "Zed": ((245, 108, 74), "Ze"),
+    "Continue": ((75, 123, 236), "Co"),
+    "Claude Desktop": ((224, 135, 107), "CD"),
+    "Roo Code": ((0, 150, 136), "RC"),
+}
+
+_FONT_CANDIDATES = [
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/System/Library/Fonts/HelveticaNeue.ttc",
+    "C:\\Windows\\Fonts\\arialbd.ttf",
+    "C:\\Windows\\Fonts\\segoeuib.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+]
+
+
+@lru_cache(maxsize=4)
+def _load_font(size: int) -> ImageFont.FreeTypeFont:
+    for path in _FONT_CANDIDATES:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    return ImageFont.load_default()
+
+
+def _draw_monogram(tool_name: str) -> Image.Image:
+    color, initials = _MONOGRAM_BADGES.get(tool_name, ((120, 120, 128), tool_name[:2].upper()))
+    img = Image.new("RGBA", (_SIZE, _SIZE), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse((0, 0, _SIZE - 1, _SIZE - 1), fill=(*color, 255))
+
+    font = _load_font(15)
+    bbox = draw.textbbox((0, 0), initials, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    draw.text(
+        (_SIZE / 2 - tw / 2 - bbox[0], _SIZE / 2 - th / 2 - bbox[1]),
+        initials,
+        font=font,
+        fill=(255, 255, 255, 255),
+    )
+    return img
+
+
+@lru_cache(maxsize=32)
+def get_badge(tool_name: str) -> Image.Image:
+    filename = _LOGO_FILES.get(tool_name)
+    if filename:
+        path = os.path.join(_ASSETS_DIR, filename)
+        if os.path.exists(path):
+            img = Image.open(path).convert("RGBA")
+            if img.size != (_SIZE, _SIZE):
+                img = img.resize((_SIZE, _SIZE), Image.LANCZOS)
+            return img
+    return _draw_monogram(tool_name)
+
+
+@lru_cache(maxsize=16)
+def get_company_logo(filename: str) -> "Image.Image | None":
+    """Loads a company-level badge (e.g. company_anthropic.png) for the
+    accordion group headers. Returns None if not bundled."""
+    if not filename:
+        return None
+    path = os.path.join(_ASSETS_DIR, filename)
+    if not os.path.exists(path):
+        return None
+    img = Image.open(path).convert("RGBA")
+    if img.size != (_SIZE, _SIZE):
+        img = img.resize((_SIZE, _SIZE), Image.LANCZOS)
+    return img
