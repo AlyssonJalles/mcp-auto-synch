@@ -230,6 +230,10 @@ class MCPMenuBarController(AppKit.NSObject):
         settings.set_hide_not_installed(hidden)
         self._rebuild_content()
 
+    def openDocumentation_(self, sender) -> None:
+        url = Foundation.NSURL.URLWithString_("https://github.com/AlyssonJalles/mcp-auto-synch")
+        AppKit.NSWorkspace.sharedWorkspace().openURL_(url)
+
     def quitClicked_(self, sender) -> None:
         self._stop.set()
         self._watcher.stop()
@@ -330,6 +334,9 @@ class MCPMenuBarController(AppKit.NSObject):
         self._list_view.addSubview_(
             self._build_switch_row("Hide not installed", hide_not_installed, "toggleHideNotInstalled:", y)
         )
+
+        y -= FOOTER_ROW_H
+        self._list_view.addSubview_(self._build_action_button("About / Documentation", "openDocumentation:", y))
 
         y -= FOOTER_ROW_H
         self._list_view.addSubview_(self._build_action_button("Quit", "quitClicked:", y))
