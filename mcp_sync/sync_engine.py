@@ -61,6 +61,7 @@ def merge_servers(tools: List[ToolSpec]) -> Dict[str, dict]:
     from the most recently modified file wins."""
     best: Dict[str, dict] = {}
     best_mtime: Dict[str, float] = {}
+    known_type: Dict[str, str] = {}
 
     for tool in tools:
         path = tool.resolved_path()
@@ -70,9 +71,21 @@ def merge_servers(tools: List[ToolSpec]) -> Dict[str, dict]:
             mtime = 0.0
         servers = _safe_read(tool)
         for name, cfg in servers.items():
+            if "url" in cfg and cfg.get("type") and name not in known_type:
+                known_type[name] = cfg["type"]
             if name not in best or mtime >= best_mtime.get(name, -1):
                 best[name] = cfg
                 best_mtime[name] = mtime
+
+    # A file's mtime can bump for reasons unrelated to its MCP servers (e.g.
+    # Claude Code's CLI touching ~/.claude.json for its own usage stats), so
+    # the "freshest wins" server dict can end up missing "type" on a remote
+    # server even though some other tool's file still has it recorded. Some
+    # tools (Claude Code) silently drop remote servers with no "type" at
+    # all, so backfill it here rather than let it get lost on every sync.
+    for name, cfg in best.items():
+        if "url" in cfg and not cfg.get("type") and name in known_type:
+            cfg["type"] = known_type[name]
 
     return best
 

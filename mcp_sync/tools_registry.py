@@ -138,7 +138,14 @@ def _vscode_adapter() -> Adapter:
         servers: ServerMap = {}
         for name, cfg in raw.items():
             cfg = copy.deepcopy(cfg)
-            cfg.pop("type", None)
+            # "type" only matters for remote servers in the canonical shape
+            # (stdio type is redundant/inferred); dropping it here for local
+            # servers but keeping it for remote ones matters a lot in
+            # practice - Claude Code silently skips any remote server whose
+            # config is missing "type", so losing it here breaks it there.
+            server_type = cfg.pop("type", None)
+            if "url" in cfg and server_type:
+                cfg["type"] = server_type
             servers[name] = cfg
         return servers
 
