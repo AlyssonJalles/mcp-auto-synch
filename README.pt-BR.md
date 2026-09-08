@@ -11,6 +11,10 @@ e Grok.
 Funciona em **macOS (Apple Silicon e Intel), Ubuntu/Linux e Windows**.
 
 ![status](https://img.shields.io/badge/status-active-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)  
+[![Follow Alysson On LinkedIn](https://img.shields.io/badge/Follow--Alysson-On_LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/alyssonjalles)
+[![Follow @AlyssonJalles on GitHub](https://img.shields.io/github/followers/AlyssonJalles?style=for-the-badge&logo=github&logoColor=white&label=Follow%20on%20GitHub&color=181717)](https://github.com/AlyssonJalles)
+
 
 ### A interface
 <table width="100%">
@@ -257,6 +261,17 @@ restaura o app para o estado padrão (todas as ferramentas habilitadas).
 Adicionar suporte a uma ferramenta nova está documentado passo a passo,
 incluindo os testes a rodar, em
 [SKILL_ADD_NEW_PROVIDER.md](SKILL_ADD_NEW_PROVIDER.md).
+
+### Publicando um release
+
+Dar push numa tag dispara o
+[.github/workflows/release.yml](.github/workflows/release.yml), que builda o
+wheel usando o que estiver em `version` no `pyproject.toml` naquele momento e
+publica como um Release no GitHub — ele não incrementa a versão sozinho.
+Fluxo correto para cada release futuro:
+
+1. Edite `version = "0.0.2"` no `pyproject.toml` (commit normal).
+2. `git tag v0.0.2 && git push origin v0.0.2`.
 
 ## Perguntas frequentes
 

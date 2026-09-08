@@ -10,6 +10,9 @@ Amazon Q, Goose, Warp, Trae, LM Studio and Grok.
 Runs on **macOS (Apple Silicon and Intel), Ubuntu/Linux, and Windows**.
 
 ![status](https://img.shields.io/badge/status-active-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)  
+[![Follow Alysson On LinkedIn](https://img.shields.io/badge/Follow--Alysson-On_LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/alyssonjalles)
+[![Follow @AlyssonJalles on GitHub](https://img.shields.io/github/followers/AlyssonJalles?style=for-the-badge&logo=github&logoColor=white&label=Follow%20on%20GitHub&color=181717)](https://github.com/AlyssonJalles)
 
 ### The interface
 <table width="100%">
@@ -237,6 +240,16 @@ Settings (which tools are disabled, last sync time) are stored in
 
 Adding support for a new tool is documented step by step, including the tests
 to run, in [SKILL_ADD_NEW_PROVIDER.md](SKILL_ADD_NEW_PROVIDER.md).
+
+### Releasing
+
+Pushing a tag triggers [.github/workflows/release.yml](.github/workflows/release.yml),
+which builds the wheel from whatever `version` is set in `pyproject.toml` at
+that moment and publishes it as a GitHub Release — it does not bump the
+version for you. Correct flow for every future release:
+
+1. Edit `version = "0.0.2"` in `pyproject.toml` (regular commit).
+2. `git tag v0.0.2 && git push origin v0.0.2`.
 
 ## FAQ
 
