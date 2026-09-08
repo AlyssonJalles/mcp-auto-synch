@@ -100,7 +100,13 @@ def get_badge(tool_name: str) -> Image.Image:
             img = Image.open(path).convert("RGBA")
             if img.size != (_SIZE, _SIZE):
                 img = img.resize((_SIZE, _SIZE), Image.LANCZOS)
-            return img
+            # Keep every provider badge circular in the native popover UI,
+            # including rectangular JPG/PNG assets supplied by providers.
+            mask = Image.new("L", (_SIZE, _SIZE), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, _SIZE - 1, _SIZE - 1), fill=255)
+            badge = Image.new("RGBA", (_SIZE, _SIZE), (0, 0, 0, 0))
+            badge.paste(img, (0, 0), mask)
+            return badge
     return _draw_monogram(tool_name)
 
 
