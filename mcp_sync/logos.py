@@ -49,6 +49,12 @@ _LOGO_FILES = {
 # sit visibly inside the circular badge instead of touching/clipping at it.
 _WIDE_INSET_FILES = {"amp.jpeg", "amazon-q.png", "goose.png", "lm-studio.jpeg"}
 
+# per-tool badge backplate color, for logos whose brand color should fill
+# the inset margin instead of the default white. Sampled from the source art.
+_BADGE_BACKGROUNDS = {
+    "Amp": (23, 38, 34, 255),
+}
+
 # fallback monogram badges, only used if a bundled logo is missing above.
 _MONOGRAM_BADGES = {
     "Codex": ((16, 163, 127), "CX"),
@@ -126,7 +132,8 @@ def get_badge(tool_name: str) -> Image.Image:
                 inset = 0
             content_size = _SIZE - inset * 2
             img.thumbnail((content_size, content_size), Image.LANCZOS)
-            fitted = Image.new("RGBA", (_SIZE, _SIZE), (255, 255, 255, 255))
+            bg_color = _BADGE_BACKGROUNDS.get(tool_name, (255, 255, 255, 255))
+            fitted = Image.new("RGBA", (_SIZE, _SIZE), bg_color)
             fitted.paste(img, ((_SIZE - img.width) // 2, (_SIZE - img.height) // 2), img)
             mask = Image.new("L", (_SIZE, _SIZE), 0)
             ImageDraw.Draw(mask).ellipse((0, 0, _SIZE - 1, _SIZE - 1), fill=255)
