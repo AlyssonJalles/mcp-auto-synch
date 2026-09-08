@@ -69,33 +69,37 @@ already on your machine.
 
 ## Supported tools and config paths
 
+Sorted alphabetically. Each icon is standardized to 42×42 for a tidy column
+(a couple of source logos aren't perfectly square, so those are very slightly
+stretched to fit).
+
 | Tool | macOS | Linux | Windows |
 |---|---|---|---|
-| Codex | `~/.codex/config.toml` | `~/.codex/config.toml` | `%USERPROFILE%\.codex\config.toml` |
-| Claude Code | `~/.claude.json` | `~/.claude.json` | `%USERPROFILE%\.claude.json` |
-| Cursor | `~/.cursor/mcp.json` | `~/.cursor/mcp.json` | `%USERPROFILE%\.cursor\mcp.json` |
-| Gemini CLI | `~/.gemini/settings.json` | `~/.gemini/settings.json` | `%USERPROFILE%\.gemini\settings.json` |
-| GitHub Copilot CLI | `~/.copilot/mcp-config.json` | `~/.copilot/mcp-config.json` | `%USERPROFILE%\.copilot\mcp-config.json` |
-| Visual Studio Code | `~/Library/Application Support/Code/User/mcp.json` | `~/.config/Code/User/mcp.json` | `%APPDATA%\Code\User\mcp.json` |
-| OpenCode | `~/.config/opencode/opencode.json` | `~/.config/opencode/opencode.json` | `%LOCALAPPDATA%\opencode\opencode.json` |
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` | `~/.codeium/windsurf/mcp_config.json` | `%USERPROFILE%\.codeium\windsurf\mcp_config.json` |
-| Antigravity | `~/.gemini/config/mcp_config.json` | `~/.gemini/config/mcp_config.json` | `%USERPROFILE%\.gemini\config\mcp_config.json` |
-| Zed | `~/.config/zed/settings.json` | `~/.config/zed/settings.json` | `%APPDATA%\Zed\settings.json` |
-| Continue | `~/.continue/config.json` | `~/.continue/config.json` | `%USERPROFILE%\.continue\config.json` |
-| Roo Code | `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json` |
-| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | *(not supported by Claude Desktop on Linux)* | `%APPDATA%\Claude\claude_desktop_config.json` |
-| Cline | `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json` |
-| Cline (CLI) | `~/.cline/data/settings/cline_mcp_settings.json` | `~/.cline/data/settings/cline_mcp_settings.json` | `%USERPROFILE%\.cline\data\settings\cline_mcp_settings.json` |
-| Kilo Code | `~/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\kilocode.kilo-code\settings\mcp_settings.json` |
-| Zoo Code | `~/Library/Application Support/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\zoocodeorganization.zoo-code\settings\mcp_settings.json` |
-| Amp | `~/.config/amp/settings.json` | `~/.config/amp/settings.json` | `%APPDATA%\amp\settings.json` |
-| Kiro | `~/.kiro/settings/mcp.json` | `~/.kiro/settings/mcp.json` | `%USERPROFILE%\.kiro\settings\mcp.json` |
-| Amazon Q | `~/.aws/amazonq/mcp.json` | `~/.aws/amazonq/mcp.json` | `%USERPROFILE%\.aws\amazonq\mcp.json` |
-| Goose | `~/.config/goose/config.yaml` | `~/.config/goose/config.yaml` | `%APPDATA%\Block\goose\config\config.yaml` |
-| Warp | `~/.warp/.mcp.json` | `~/.warp/.mcp.json` | `%USERPROFILE%\.warp\.mcp.json` |
-| Trae | `~/Library/Application Support/Trae/User/mcp.json` | `~/.config/Trae/User/mcp.json` | `%APPDATA%\Trae\User\mcp.json` |
-| LM Studio | `~/.lmstudio/mcp.json` | `~/.lmstudio/mcp.json` | `%USERPROFILE%\.lmstudio\mcp.json` |
-| Grok | `~/.grok/settings.json` | `~/.grok/settings.json` | `%USERPROFILE%\.grok\settings.json` |
+| **Amazon Q**<br><img src="mcp_sync/assets/logos/readme/amazon-q.png" width="42" height="42"> | `~/.aws/amazonq/mcp.json` | `~/.aws/amazonq/mcp.json` | `%USERPROFILE%\.aws\amazonq\mcp.json` |
+| **Amp**<br><img src="mcp_sync/assets/logos/readme/amp.png" width="42" height="42"> | `~/.config/amp/settings.json` | `~/.config/amp/settings.json` | `%APPDATA%\amp\settings.json` |
+| **Antigravity**<br><img src="mcp_sync/assets/logos/readme/antigravity.png" width="42" height="42"> | `~/.gemini/config/mcp_config.json` | `~/.gemini/config/mcp_config.json` | `%USERPROFILE%\.gemini\config\mcp_config.json` |
+| **Claude Code**<br><img src="mcp_sync/assets/logos/readme/claude-code.png" width="42" height="42"> | `~/.claude.json` | `~/.claude.json` | `%USERPROFILE%\.claude.json` |
+| **Claude Desktop**<br><img src="mcp_sync/assets/logos/readme/claude-desktop.png" width="42" height="42"> | `~/Library/Application Support/Claude/claude_desktop_config.json` | *(not supported by Claude Desktop on Linux)* | `%APPDATA%\Claude\claude_desktop_config.json` |
+| **Cline**<br><img src="mcp_sync/assets/logos/readme/cline.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json` |
+| **Cline (CLI)**<br><img src="mcp_sync/assets/logos/readme/cline-cli.png" width="42" height="42"> | `~/.cline/data/settings/cline_mcp_settings.json` | `~/.cline/data/settings/cline_mcp_settings.json` | `%USERPROFILE%\.cline\data\settings\cline_mcp_settings.json` |
+| **Codex**<br><img src="mcp_sync/assets/logos/readme/codex.png" width="42" height="42"> | `~/.codex/config.toml` | `~/.codex/config.toml` | `%USERPROFILE%\.codex\config.toml` |
+| **Continue**<br><img src="mcp_sync/assets/logos/readme/continue.png" width="42" height="42"> | `~/.continue/config.json` | `~/.continue/config.json` | `%USERPROFILE%\.continue\config.json` |
+| **Cursor**<br><img src="mcp_sync/assets/logos/readme/cursor.png" width="42" height="42"> | `~/.cursor/mcp.json` | `~/.cursor/mcp.json` | `%USERPROFILE%\.cursor\mcp.json` |
+| **Gemini CLI**<br><img src="mcp_sync/assets/logos/readme/gemini-cli.png" width="42" height="42"> | `~/.gemini/settings.json` | `~/.gemini/settings.json` | `%USERPROFILE%\.gemini\settings.json` |
+| **GitHub Copilot CLI**<br><img src="mcp_sync/assets/logos/readme/github-copilot-cli.png" width="42" height="42"> | `~/.copilot/mcp-config.json` | `~/.copilot/mcp-config.json` | `%USERPROFILE%\.copilot\mcp-config.json` |
+| **Goose**<br><img src="mcp_sync/assets/logos/readme/goose.png" width="42" height="42"> | `~/.config/goose/config.yaml` | `~/.config/goose/config.yaml` | `%APPDATA%\Block\goose\config\config.yaml` |
+| **Grok**<br><img src="mcp_sync/assets/logos/readme/grok.png" width="42" height="42"> | `~/.grok/settings.json` | `~/.grok/settings.json` | `%USERPROFILE%\.grok\settings.json` |
+| **Kilo Code**<br><img src="mcp_sync/assets/logos/readme/kilo-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\kilocode.kilo-code\settings\mcp_settings.json` |
+| **Kiro**<br><img src="mcp_sync/assets/logos/readme/kiro.png" width="42" height="42"> | `~/.kiro/settings/mcp.json` | `~/.kiro/settings/mcp.json` | `%USERPROFILE%\.kiro\settings\mcp.json` |
+| **LM Studio**<br><img src="mcp_sync/assets/logos/readme/lm-studio.png" width="42" height="42"> | `~/.lmstudio/mcp.json` | `~/.lmstudio/mcp.json` | `%USERPROFILE%\.lmstudio\mcp.json` |
+| **OpenCode**<br><img src="mcp_sync/assets/logos/readme/opencode.png" width="42" height="42"> | `~/.config/opencode/opencode.json` | `~/.config/opencode/opencode.json` | `%LOCALAPPDATA%\opencode\opencode.json` |
+| **Roo Code**<br><img src="mcp_sync/assets/logos/readme/roo-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json` |
+| **Trae**<br><img src="mcp_sync/assets/logos/readme/trae.png" width="42" height="42"> | `~/Library/Application Support/Trae/User/mcp.json` | `~/.config/Trae/User/mcp.json` | `%APPDATA%\Trae\User\mcp.json` |
+| **Visual Studio Code**<br><img src="mcp_sync/assets/logos/readme/visual-studio-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/mcp.json` | `~/.config/Code/User/mcp.json` | `%APPDATA%\Code\User\mcp.json` |
+| **Warp**<br><img src="mcp_sync/assets/logos/readme/warp.png" width="42" height="42"> | `~/.warp/.mcp.json` | `~/.warp/.mcp.json` | `%USERPROFILE%\.warp\.mcp.json` |
+| **Windsurf**<br><img src="mcp_sync/assets/logos/readme/windsurf.png" width="42" height="42"> | `~/.codeium/windsurf/mcp_config.json` | `~/.codeium/windsurf/mcp_config.json` | `%USERPROFILE%\.codeium\windsurf\mcp_config.json` |
+| **Zed**<br><img src="mcp_sync/assets/logos/readme/zed.png" width="42" height="42"> | `~/.config/zed/settings.json` | `~/.config/zed/settings.json` | `%APPDATA%\Zed\settings.json` |
+| **Zoo Code**<br><img src="mcp_sync/assets/logos/readme/zoo-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\zoocodeorganization.zoo-code\settings\mcp_settings.json` |
 
 > **Note:** Firebase Studio is not included — its MCP config
 > (`.idx/mcp.json`) is strictly project-scoped with no stable global/user-level
@@ -117,14 +121,16 @@ entirely via "Hide not installed") and are never written to.
 > HTTP servers; double-check the result if you use advanced options for
 > either tool.
 
-> **Note on the logo badges:** the small provider/company icons shown in the
-> macOS popover (`mcp_sync/assets/logos/`) are sourced from openly available
-> icon sets — [OmniRoute's `public/providers`](https://github.com/AlyssonJalles/OmniRoute/tree/release/v3.8.51/public/providers)
-> folder, with [thesvg.org](https://thesvg.org) as a fallback for the couple
-> of tools missing there (Visual Studio Code, OpenCode) — used purely to
-> visually identify each tool; all logos remain trademarks of their
-> respective owners. Any tool without a bundled logo falls back to a small
-> generated colored monogram instead (`mcp_sync/logos.py`).
+> **Note on the logo badges:** the round, white-ringed icons in the table
+> above (`mcp_sync/assets/logos/readme/`) are **generated**, not hand-authored
+> — they're the exact same circular-badge renderer the app uses
+> (`logos.get_badge`), just called at a higher resolution. If you change a
+> source logo under `mcp_sync/assets/logos/`, regenerate this folder — don't
+> edit its PNGs by hand:
+> ```python
+> from mcp_sync.logos import get_badge
+> get_badge("Kilo Code", size=112).save("mcp_sync/assets/logos/readme/kilo-code.png")
+> ```
 
 ## Install
 
@@ -153,7 +159,57 @@ Python), registers the app to start at login, and launches it immediately.
 
 **Uninstall**: run the matching `installers/uninstall_*` script for your OS.
 
+## Rebuilding after a code change
+
+The installers do a **regular (copied) install**, not an editable one. Editing
+files in this repo therefore does *not* affect the app that's already running —
+you have to reinstall into its virtual environment and restart it:
+
+```bash
+# 1. reinstall the package into the app's venv (run from the repo root)
+~/.mcp-sync/venv/bin/pip install --upgrade .
+```
+
+```bash
+# 2a. restart — macOS
+launchctl unload ~/Library/LaunchAgents/com.mcpsync.app.plist
+launchctl load -w ~/Library/LaunchAgents/com.mcpsync.app.plist
+```
+
+```bash
+# 2b. restart — Linux
+pkill -f mcp_sync.app
+~/.mcp-sync/venv/bin/python3 -m mcp_sync.app &
+```
+
+```powershell
+# 2c. restart — Windows (PowerShell)
+Get-Process pythonw -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*mcp-sync*" } | Stop-Process
+& "$env:USERPROFILE\.mcp-sync\venv\Scripts\pythonw.exe" -m mcp_sync.app
+```
+
+On macOS, if you changed the app icon (`mcp_sync/assets/logos/_mcp_synch.png`)
+or anything in `autostart.py`, also regenerate the `.app` bundle — it's what
+gives the process its name and icon in Activity Monitor:
+
+```bash
+~/.mcp-sync/venv/bin/python3 -c "from mcp_sync import autostart; autostart.enable()"
+```
+
+To confirm it came back up cleanly:
+
+```bash
+ps -p "$(pgrep -f mcp-auto-synch)" -o pid,etime,ucomm   # macOS/Linux
+cat /tmp/mcp-sync.err                                   # should be empty
+```
+
+> **Note:** `last_sync_iso` in `~/.mcp-sync/settings.json` only advances when a
+> sync actually *rewrites* a file. If everything is already in sync, the
+> timestamp legitimately stays where it was — that's not a sign the app is stuck.
+
 ## Development
+
+To run from source without touching the installed app, use a separate venv:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
@@ -163,6 +219,27 @@ python -m mcp_sync.app
 
 Settings (which tools are disabled, last sync time) are stored in
 `~/.mcp-sync/settings.json`.
+
+Adding support for a new tool is documented step by step, including the tests
+to run, in [SKILL_ADD_NEW_PROVIDER.md](SKILL_ADD_NEW_PROVIDER.md).
+
+## FAQ
+
+**Does the app change anything besides the MCP server list?**
+No. It only touches each file's specific MCP servers key (`mcpServers`,
+`servers`, `mcp_servers`, `context_servers` or `mcp`, depending on the tool)
+and preserves everything else in the file as-is.
+
+**Do I have to configure the file paths manually?**
+No. The app scans your system for every supported tool and only shows the ones
+it actually finds installed.
+
+**What if I don't want to sync a specific tool?**
+Flip its switch off. It stops being read from and written to until you turn it
+back on — its file stays exactly as it was at the last sync.
+
+**Does it work offline?**
+Yes, the app makes no network calls at all — it's 100% local.
 
 ## Function reference
 
