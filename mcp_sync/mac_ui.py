@@ -308,7 +308,7 @@ class MCPMenuBarController(AppKit.NSObject):
             blocks.append(("dim_label", f'No provider matches "{query}"', FOOTER_ROW_H))
 
         rows_h = sum(h for _, _, h in blocks)
-        footer_h = SEP_H + FOOTER_ROW_H * 4
+        footer_h = SEP_H + FOOTER_ROW_H * 5
         list_h = max(rows_h, LIST_VIEWPORT_HEIGHT)
 
         for old_subview in list(self._list_view.subviews()):
@@ -350,9 +350,9 @@ class MCPMenuBarController(AppKit.NSObject):
         self._footer_view.addSubview_(self._build_action_button("About / Documentation", "openDocumentation:", footer_y))
         footer_y -= FOOTER_ROW_H
         self._footer_view.addSubview_(self._build_action_button("Quit", "quitClicked:", footer_y))
-        self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h + FOOTER_ROW_H))
+        self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h))
 
-        total_h = min(MAX_POPOVER_HEIGHT, HEADER_H + SEARCH_H + 6 + SEP_H + LIST_VIEWPORT_HEIGHT + footer_h + FOOTER_ROW_H)
+        total_h = min(MAX_POPOVER_HEIGHT, HEADER_H + SEARCH_H + 6 + SEP_H + LIST_VIEWPORT_HEIGHT + footer_h)
 
         y2 = total_h
         y2 -= HEADER_H
@@ -370,8 +370,8 @@ class MCPMenuBarController(AppKit.NSObject):
         list_viewport_y = y2 - LIST_VIEWPORT_HEIGHT
         self._list_scroll.setFrame_(Foundation.NSMakeRect(0, list_viewport_y, WIDTH, LIST_VIEWPORT_HEIGHT))
         self._list_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, max(rows_h, LIST_VIEWPORT_HEIGHT)))
-        self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h + FOOTER_ROW_H))
-        footer_y = list_viewport_y - footer_h - FOOTER_ROW_H
+        self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h))
+        footer_y = list_viewport_y - footer_h
         self._footer_view.setFrameOrigin_(Foundation.NSMakePoint(0, footer_y))
         self._root_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, total_h))
 
