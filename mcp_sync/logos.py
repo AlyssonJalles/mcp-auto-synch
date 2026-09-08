@@ -98,14 +98,17 @@ def get_badge(tool_name: str) -> Image.Image:
         path = os.path.join(_ASSETS_DIR, filename)
         if os.path.exists(path):
             img = Image.open(path).convert("RGBA")
-            if img.size != (_SIZE, _SIZE):
-                img = img.resize((_SIZE, _SIZE), Image.LANCZOS)
-            # Keep every provider badge circular in the native popover UI,
-            # including rectangular JPG/PNG assets supplied by providers.
+            # Keep a small inset so logos whose artwork reaches the source
+            # edge are not clipped by the circular UI mask.
+            inset = 4 if filename.startswith("github-copilot") else 0
+            content_size = _SIZE - inset * 2
+            img.thumbnail((content_size, content_size), Image.LANCZOS)
+            fitted = Image.new("RGBA", (_SIZE, _SIZE), (255, 255, 255, 255))
+            fitted.paste(img, ((_SIZE - img.width) // 2, (_SIZE - img.height) // 2), img)
             mask = Image.new("L", (_SIZE, _SIZE), 0)
             ImageDraw.Draw(mask).ellipse((0, 0, _SIZE - 1, _SIZE - 1), fill=255)
             badge = Image.new("RGBA", (_SIZE, _SIZE), (0, 0, 0, 0))
-            badge.paste(img, (0, 0), mask)
+            badge.paste(fitted, (0, 0), mask)
             return badge
     return _draw_monogram(tool_name)
 
