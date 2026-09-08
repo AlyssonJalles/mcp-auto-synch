@@ -24,6 +24,14 @@ GROUPS: List[CompanyGroup] = [
     CompanyGroup("Continue", ["Continue"], "continue.png"),
     CompanyGroup("SST", ["OpenCode"], "opencode.png"),
     CompanyGroup("Roo Code", ["Roo Code"], "roocode.png"),
+    CompanyGroup("Cline Bot", ["Cline"], "cline.png"),
+    CompanyGroup("Sourcegraph", ["Amp"], "amp.png"),
+    CompanyGroup("AWS", ["Kiro", "Amazon Q"], "aws.png"),
+    CompanyGroup("Block", ["Goose"], "goose.png"),
+    CompanyGroup("Warp", ["Warp"], "warp.png"),
+    CompanyGroup("ByteDance", ["Trae"], "trae.png"),
+    CompanyGroup("Element Labs", ["LM Studio"], "lm-studio.png"),
+    CompanyGroup("xAI", ["Grok"], "grok.png"),
 ]
 
 

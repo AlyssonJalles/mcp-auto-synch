@@ -4,7 +4,8 @@ A tiny, always-on **menu bar / system tray app** that keeps your **MCP
 (Model Context Protocol) server configuration** in sync across every AI
 coding tool installed on your machine — Codex, Claude Code, Cursor, Gemini
 CLI, GitHub Copilot CLI, VS Code, OpenCode, Windsurf, Antigravity, Zed,
-Continue and Claude Desktop.
+Continue, Roo Code, Claude Desktop, Cline, Amp, Kiro, Amazon Q, Goose, Warp,
+Trae, LM Studio and Grok.
 
 Runs on **macOS (Apple Silicon and Intel), Ubuntu/Linux, and Windows**.
 
@@ -83,6 +84,19 @@ already on your machine.
 | Continue | `~/.continue/config.json` | `~/.continue/config.json` | `%USERPROFILE%\.continue\config.json` |
 | Roo Code | `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json` |
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | *(not supported by Claude Desktop on Linux)* | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Cline | `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json` |
+| Amp | `~/.config/amp/settings.json` | `~/.config/amp/settings.json` | `%APPDATA%\amp\settings.json` |
+| Kiro | `~/.kiro/settings/mcp.json` | `~/.kiro/settings/mcp.json` | `%USERPROFILE%\.kiro\settings\mcp.json` |
+| Amazon Q | `~/.aws/amazonq/mcp.json` | `~/.aws/amazonq/mcp.json` | `%USERPROFILE%\.aws\amazonq\mcp.json` |
+| Goose | `~/.config/goose/config.yaml` | `~/.config/goose/config.yaml` | `%APPDATA%\Block\goose\config\config.yaml` |
+| Warp | `~/.warp/.mcp.json` | `~/.warp/.mcp.json` | `%USERPROFILE%\.warp\.mcp.json` |
+| Trae | `~/Library/Application Support/Trae/User/mcp.json` | `~/.config/Trae/User/mcp.json` | `%APPDATA%\Trae\User\mcp.json` |
+| LM Studio | `~/.lmstudio/mcp.json` | `~/.lmstudio/mcp.json` | `%USERPROFILE%\.lmstudio\mcp.json` |
+| Grok | `~/.grok/settings.json` | `~/.grok/settings.json` | `%USERPROFILE%\.grok\settings.json` |
+
+> **Note:** Firebase Studio is not included — its MCP config
+> (`.idx/mcp.json`) is strictly project-scoped with no stable global/user-level
+> file to watch, so it doesn't fit this app's per-user sync model.
 
 A tool only shows up as "installed" once MCP Sync finds real evidence it's
 actually on your machine — its config file already existing, its CLI binary

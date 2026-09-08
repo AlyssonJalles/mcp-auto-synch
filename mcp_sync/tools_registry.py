@@ -30,6 +30,11 @@ except ModuleNotFoundError:  # pragma: no cover
 
 import tomli_w
 
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - only needed for Goose
+    yaml = None
+
 
 ServerMap = Dict[str, dict]
 
@@ -53,6 +58,27 @@ def _write_json(path: str, data: dict) -> None:
     with open(tmp_path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
+    os.replace(tmp_path, path)
+
+
+def _read_yaml(path: str) -> dict:
+    if yaml is None or not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_yaml(path: str, data: dict) -> None:
+    if yaml is None:
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = path + ".mcpsync.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as fh:
+        yaml.safe_dump(data, fh, sort_keys=False)
     os.replace(tmp_path, path)
 
 
@@ -228,6 +254,53 @@ def _opencode_adapter() -> Adapter:
                 }
         data["mcp"] = out
         _write_json(path, data)
+
+    return Adapter(read=read, write=write)
+
+
+def _goose_adapter() -> Adapter:
+    """Goose's config.yaml uses a top-level "extensions" map (YAML, not
+    JSON): {name: {type: stdio|sse, cmd, args, envs, uri, enabled}}."""
+
+    def read(path: str) -> ServerMap:
+        data = _read_yaml(path)
+        raw = data.get("extensions") or {}
+        servers: ServerMap = {}
+        for name, cfg in raw.items():
+            if not isinstance(cfg, dict):
+                continue
+            if cfg.get("type") == "sse" or "uri" in cfg:
+                servers[name] = {"url": cfg.get("uri", ""), "headers": cfg.get("headers", {}) or {}}
+            else:
+                servers[name] = {
+                    "command": cfg.get("cmd", ""),
+                    "args": cfg.get("args", []) or [],
+                    "env": cfg.get("envs", {}) or {},
+                }
+        return servers
+
+    def write(path: str, servers: ServerMap) -> None:
+        data = _read_yaml(path)
+        out = data.get("extensions") or {}
+        for name, cfg in servers.items():
+            if "url" in cfg:
+                out[name] = {
+                    "name": name,
+                    "type": "sse",
+                    "uri": cfg.get("url", ""),
+                    "enabled": True,
+                }
+            else:
+                out[name] = {
+                    "name": name,
+                    "type": "stdio",
+                    "cmd": cfg.get("command", ""),
+                    "args": cfg.get("args", []) or [],
+                    "envs": cfg.get("env", {}) or {},
+                    "enabled": True,
+                }
+        data["extensions"] = out
+        _write_yaml(path, data)
 
     return Adapter(read=read, write=write)
 
@@ -413,6 +486,78 @@ def build_registry() -> Dict[str, ToolSpec]:
             adapter=_generic_mcp_servers_key_adapter(),
             doc_url="https://docs.roocode.com/features/mcp/using-mcp-in-roo-code",
             extension_globs=("~/.vscode/extensions/rooveterinaryinc.roo-cline-*",),
+        ),
+        ToolSpec(
+            name="Cline",
+            path=_mac_windows_linux(
+                "~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json",
+                "~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json",
+                "%APPDATA%\\Code\\User\\globalStorage\\saoudrizwan.claude-dev\\settings\\cline_mcp_settings.json",
+            ),
+            adapter=_generic_mcp_servers_key_adapter(),
+            doc_url="https://docs.cline.bot/mcp/configuring-mcp-servers",
+            extension_globs=("~/.vscode/extensions/saoudrizwan.claude-dev-*",),
+        ),
+        ToolSpec(
+            name="Amp",
+            path=_mac_windows_linux("~/.config/amp/settings.json", "~/.config/amp/settings.json", "%APPDATA%\\amp\\settings.json"),
+            adapter=_generic_mcp_servers_key_adapter(key="amp.mcpServers"),
+            doc_url="https://ampcode.com/docs",
+            binary_names=("amp",),
+        ),
+        ToolSpec(
+            name="Kiro",
+            path=_mac_windows_linux("~/.kiro/settings/mcp.json", "~/.kiro/settings/mcp.json", "%USERPROFILE%\\.kiro\\settings\\mcp.json"),
+            adapter=_generic_mcp_servers_key_adapter(),
+            doc_url="https://kiro.dev/docs/mcp/configuration/",
+            binary_names=("kiro",),
+            app_bundle_names=("Kiro.app",),
+        ),
+        ToolSpec(
+            name="Amazon Q",
+            path=_mac_windows_linux("~/.aws/amazonq/mcp.json", "~/.aws/amazonq/mcp.json", "%USERPROFILE%\\.aws\\amazonq\\mcp.json"),
+            adapter=_generic_mcp_servers_key_adapter(),
+            doc_url="https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line-mcp-config-CLI.html",
+            binary_names=("q",),
+        ),
+        ToolSpec(
+            name="Goose",
+            path=_mac_windows_linux("~/.config/goose/config.yaml", "~/.config/goose/config.yaml", "%APPDATA%\\Block\\goose\\config\\config.yaml"),
+            adapter=_goose_adapter(),
+            doc_url="https://goose-docs.ai/docs/guides/config-files/",
+            binary_names=("goose",),
+        ),
+        ToolSpec(
+            name="Warp",
+            path=_mac_windows_linux("~/.warp/.mcp.json", "~/.warp/.mcp.json", "%USERPROFILE%\\.warp\\.mcp.json"),
+            adapter=_generic_mcp_servers_key_adapter(),
+            doc_url="https://docs.warp.dev/agents/capabilities/mcp/",
+            app_bundle_names=("Warp.app",),
+        ),
+        ToolSpec(
+            name="Trae",
+            path=_mac_windows_linux(
+                "~/Library/Application Support/Trae/User/mcp.json",
+                "~/.config/Trae/User/mcp.json",
+                "%APPDATA%\\Trae\\User\\mcp.json",
+            ),
+            adapter=_vscode_adapter(),
+            doc_url="https://docs.trae.ai/ide/add-mcp-servers",
+            app_bundle_names=("Trae.app",),
+        ),
+        ToolSpec(
+            name="LM Studio",
+            path=_mac_windows_linux("~/.lmstudio/mcp.json", "~/.lmstudio/mcp.json", "%USERPROFILE%\\.lmstudio\\mcp.json"),
+            adapter=_generic_mcp_servers_key_adapter(),
+            doc_url="https://lmstudio.ai/docs/app/mcp",
+            app_bundle_names=("LM Studio.app",),
+        ),
+        ToolSpec(
+            name="Grok",
+            path=_mac_windows_linux("~/.grok/settings.json", "~/.grok/settings.json", "%USERPROFILE%\\.grok\\settings.json"),
+            adapter=_generic_mcp_servers_key_adapter(),
+            doc_url="https://github.com/superagent-ai/grok-cli",
+            binary_names=("grok",),
         ),
     ]
 

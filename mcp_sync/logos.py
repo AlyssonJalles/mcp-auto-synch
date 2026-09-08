@@ -33,6 +33,11 @@ _LOGO_FILES = {
     "Zed": "zed-hosted.png",
     "Continue": "continue.png",
     "Roo Code": "roocode.png",
+    "Cline": "cline.png",
+    "Kiro": "kiro.png",
+    "Trae": "trae.png",
+    "Warp": "warp.png",
+    "Grok": "grok.png",
 }
 
 # fallback monogram badges, only used if a bundled logo is missing above.
@@ -50,6 +55,10 @@ _MONOGRAM_BADGES = {
     "Continue": ((75, 123, 236), "Co"),
     "Claude Desktop": ((224, 135, 107), "CD"),
     "Roo Code": ((0, 150, 136), "RC"),
+    "Amp": ((30, 30, 40), "Am"),
+    "Amazon Q": ((35, 47, 62), "AQ"),
+    "Goose": ((249, 115, 22), "Go"),
+    "LM Studio": ((80, 80, 200), "LM"),
 }
 
 _FONT_CANDIDATES = [
