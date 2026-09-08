@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from typing import Callable, Set
+from typing import Callable, List, Set
 
 from .sync_engine import all_registry_paths
 
@@ -14,12 +14,13 @@ POLL_INTERVAL_SECONDS = 5
 
 
 class Watcher:
-    def __init__(self, on_change: Callable[[], None]):
+    def __init__(self, on_change: Callable[[List[str]], None]):
         self._on_change = on_change
         self._stop = threading.Event()
         self._debounce_timer: threading.Timer | None = None
         self._observer = None
         self._poll_thread: threading.Thread | None = None
+        self._pending_paths: Set[str] = set()
 
     def start(self) -> None:
         try:
@@ -50,7 +51,7 @@ class Watcher:
             def on_any_event(self, event):  # noqa: ANN001
                 if event.is_directory:
                     return
-                watcher._schedule_debounced_sync()
+                watcher._schedule_debounced_sync([event.src_path])
 
         dirs: Set[str] = set()
         for path in all_registry_paths():
@@ -61,7 +62,8 @@ class Watcher:
         observer = Observer()
         handler = Handler()
         for d in dirs:
-            os.makedirs(d, exist_ok=True)
+            if not os.path.isdir(d):
+                continue
             observer.schedule(handler, d, recursive=False)
         observer.daemon = True
         observer.start()
@@ -73,17 +75,17 @@ class Watcher:
         def loop():
             last_mtimes: dict[str, float] = {}
             while not self._stop.is_set():
-                changed = False
+                changed_paths: List[str] = []
                 for path in all_registry_paths():
                     try:
                         mtime = os.path.getmtime(path)
                     except OSError:
                         mtime = 0.0
                     if last_mtimes.get(path) not in (None, mtime):
-                        changed = True
+                        changed_paths.append(path)
                     last_mtimes[path] = mtime
-                if changed:
-                    self._on_change()
+                if changed_paths:
+                    self._on_change(changed_paths)
                 self._stop.wait(POLL_INTERVAL_SECONDS)
 
         thread = threading.Thread(target=loop, daemon=True)
@@ -92,9 +94,15 @@ class Watcher:
 
     # -- shared debounce ------------------------------------------------
 
-    def _schedule_debounced_sync(self) -> None:
+    def _schedule_debounced_sync(self, changed_paths: List[str]) -> None:
         if self._debounce_timer is not None:
             self._debounce_timer.cancel()
-        self._debounce_timer = threading.Timer(DEBOUNCE_SECONDS, self._on_change)
+        self._pending_paths.update(changed_paths)
+        self._debounce_timer = threading.Timer(DEBOUNCE_SECONDS, self._flush_pending_paths)
         self._debounce_timer.daemon = True
         self._debounce_timer.start()
+
+    def _flush_pending_paths(self) -> None:
+        paths = list(self._pending_paths)
+        self._pending_paths.clear()
+        self._on_change(paths)

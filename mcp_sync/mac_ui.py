@@ -118,7 +118,7 @@ class MCPMenuBarController(AppKit.NSObject):
 
     # ----------------------------------------------------------------- sync
 
-    def sync_now(self, notify_result: bool = True) -> None:
+    def sync_now(self, notify_result: bool = True, changed_paths: list[str] | None = None) -> None:
         # Only flash the icon for user-visible triggers (button click, a real
         # external file change); silent background ticks stay quiet so the
         # icon isn't constantly flickering. sync_now() always runs on a
@@ -128,7 +128,7 @@ class MCPMenuBarController(AppKit.NSObject):
         if notify_result:
             AppHelper.callAfter(self._set_menubar_icon, True)
         try:
-            result = sync_engine.run_sync()
+            result = sync_engine.run_sync(changed_paths=changed_paths)
         finally:
             if notify_result:
                 AppHelper.callAfter(self._set_menubar_icon, False)
@@ -138,10 +138,10 @@ class MCPMenuBarController(AppKit.NSObject):
         elif result.error:
             notify(APP_NAME, f"Sync error: {result.error}")
 
-    def _on_files_changed(self) -> None:
+    def _on_files_changed(self, changed_paths: list[str]) -> None:
         if sync_engine.seconds_since_last_sync() < SELF_WRITE_SUPPRESS_SECONDS:
             return  # our own write just triggered this event, not a real external change
-        threading.Thread(target=lambda: self.sync_now(notify_result=True), daemon=True).start()
+        threading.Thread(target=lambda: self.sync_now(notify_result=True, changed_paths=changed_paths), daemon=True).start()
 
     def periodicSyncTick_(self, timer) -> None:
         threading.Thread(target=lambda: self.sync_now(notify_result=False), daemon=True).start()

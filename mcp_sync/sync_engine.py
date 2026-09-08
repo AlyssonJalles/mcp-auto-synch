@@ -15,6 +15,10 @@ from .tools_registry import REGISTRY, ServerMap, ToolSpec
 
 _sync_lock = threading.Lock()
 _last_sync_end_ts = 0.0
+_known_servers: Dict[str, set[str]] = {
+    name: set(names)
+    for name, names in settings.load().get("known_servers_by_tool", {}).items()
+}
 
 
 def seconds_since_last_sync() -> float:
@@ -73,7 +77,7 @@ def merge_servers(tools: List[ToolSpec]) -> Dict[str, dict]:
     return best
 
 
-def run_sync() -> SyncResult:
+def run_sync(changed_paths: Optional[List[str]] = None) -> SyncResult:
     """Perform one full sync pass across all enabled + detected tools."""
     global _last_sync_end_ts
     with _sync_lock:
@@ -81,6 +85,17 @@ def run_sync() -> SyncResult:
         try:
             tools = _enabled_detected_tools()
             merged = merge_servers(tools)
+            by_path = {tool.resolved_path(): tool for tool in tools}
+            if changed_paths:
+                for path in changed_paths:
+                    tool = by_path.get(os.path.abspath(path))
+                    if tool is None:
+                        continue
+                    current_names = set(_safe_read(tool))
+                    previous_names = _known_servers.get(tool.name, current_names)
+                    removed_names = previous_names - current_names
+                    for removed_name in removed_names:
+                        merged.pop(removed_name, None)
             result.merged_server_names = sorted(merged.keys())
 
             for tool in tools:
@@ -100,6 +115,13 @@ def run_sync() -> SyncResult:
                 settings.save(data)
 
             result.statuses = build_statuses(merged)
+            _known_servers.clear()
+            _known_servers.update({tool.name: set(_safe_read(tool)) for tool in tools})
+            data = settings.load()
+            data["known_servers_by_tool"] = {
+                name: sorted(names) for name, names in _known_servers.items()
+            }
+            settings.save(data)
         except Exception as exc:
             result.error = str(exc)
         finally:

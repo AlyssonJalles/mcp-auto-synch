@@ -18,6 +18,7 @@ _DEFAULTS: Dict[str, Any] = {
     "start_at_login": True,
     "last_sync_iso": None,
     "hide_not_installed": True,
+    "known_servers_by_tool": {},
 }
 
 
