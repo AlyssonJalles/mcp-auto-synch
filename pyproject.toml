@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-sync-tray"
-version = "1.0.0"
+version = "0.0.1"
 description = "Minimal menu bar / system tray app that keeps MCP server configuration in sync across AI coding tools (Codex, Claude Code, Cursor, VS Code, Gemini CLI, Copilot CLI, Windsurf, Zed, OpenCode, Continue, Antigravity, Claude Desktop)."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -11,6 +11,48 @@ Runs on **macOS (Apple Silicon and Intel), Ubuntu/Linux, and Windows**.
 
 ![status](https://img.shields.io/badge/status-active-brightgreen)
 
+### The interface
+<table width="100%">
+<tr>
+<td width="26%"><img src="mcp_sync/assets/App-working.gif" alt="Demonstração do aplicativo" width="100%"></td>
+<td width="40%"><img src="mcp_sync/assets/all-synch.png" alt="Demonstração do aplicativo" width="100%"></td>
+</tr>
+</table>
+
+## Install
+
+### macOS / Linux — install directly from GitHub (no clone needed)
+```bash
+curl -fsSL https://raw.githubusercontent.com/AlyssonJalles/mcp-auto-synch/main/installers/install.sh | bash
+```
+This downloads the latest [GitHub Release](https://github.com/AlyssonJalles/mcp-auto-synch/releases)
+wheel and installs it — same result as the scripts below, without cloning the repo.
+
+### macOS (from a local clone)
+```bash
+./installers/install_macos.sh
+```
+
+### Ubuntu / Linux (from a local clone)
+```bash
+./installers/install_linux.sh
+```
+Requires a system tray/AppIndicator (enabled by default on Ubuntu's GNOME).
+If the icon doesn't show up, see the note the installer prints about
+`gir1.2-ayatana-appindicator3-0.1`.
+
+### Windows
+In PowerShell:
+```powershell
+powershell -ExecutionPolicy Bypass -File installers\install_windows.ps1
+```
+
+Each installer creates an isolated Python virtual environment under
+`~/.mcp-sync/venv` (keeping the app "light" and not polluting your system
+Python), registers the app to start at login, and launches it immediately.
+
+**Uninstall**: run the matching `installers/uninstall_*` script for your OS.
+
 ## Why
 
 Every one of these tools stores its own list of MCP servers in its own
@@ -131,33 +173,6 @@ entirely via "Hide not installed") and are never written to.
 > from mcp_sync.logos import get_badge
 > get_badge("Kilo Code", size=112).save("mcp_sync/assets/logos/readme/kilo-code.png")
 > ```
-
-## Install
-
-### macOS
-```bash
-./installers/install_macos.sh
-```
-
-### Ubuntu / Linux
-```bash
-./installers/install_linux.sh
-```
-Requires a system tray/AppIndicator (enabled by default on Ubuntu's GNOME).
-If the icon doesn't show up, see the note the installer prints about
-`gir1.2-ayatana-appindicator3-0.1`.
-
-### Windows
-In PowerShell:
-```powershell
-powershell -ExecutionPolicy Bypass -File installers\install_windows.ps1
-```
-
-Each installer creates an isolated Python virtual environment under
-`~/.mcp-sync/venv` (keeping the app "light" and not polluting your system
-Python), registers the app to start at login, and launches it immediately.
-
-**Uninstall**: run the matching `installers/uninstall_*` script for your OS.
 
 ## Rebuilding after a code change
 
