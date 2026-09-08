@@ -40,8 +40,8 @@ SEARCH_H = 26
 FOOTER_ROW_H = 36
 SEP_H = 9
 MARGIN = 14
-MAX_POPOVER_HEIGHT = 760
-LIST_VIEWPORT_HEIGHT = 360
+MAX_POPOVER_HEIGHT = 780
+LIST_VIEWPORT_HEIGHT = 440
 
 
 def _pil_to_nsimage(img, point_height: "float | None" = None) -> "AppKit.NSImage":
