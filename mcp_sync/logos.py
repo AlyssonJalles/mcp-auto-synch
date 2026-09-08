@@ -34,6 +34,8 @@ _LOGO_FILES = {
     "Continue": "continue.png",
     "Roo Code": "roocode.png",
     "Cline": "cline.png",
+    "Kilo Code": "kilo-code.png",
+    "Zoo Code": "zoo-code.png",
     "Kiro": "kiro.png",
     "Trae": "trae.png",
     "Warp": "warp.png",

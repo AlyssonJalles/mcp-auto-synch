@@ -14,7 +14,6 @@ from __future__ import annotations
 import io
 import os
 import threading
-import time
 
 import AppKit
 import Foundation
@@ -88,7 +87,6 @@ class MCPMenuBarController(AppKit.NSObject):
         self._chrome_built = False
         self._tool_order: list = []
         self._tool_paths: list = []
-        self._sync_flash_until = 0.0
         self._search_field = AppKit.NSSearchField.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, 10, SEARCH_H))
         self._search_field.setPlaceholderString_("Search providers\u2026")
         self._search_field.setTarget_(self)
@@ -120,7 +118,7 @@ class MCPMenuBarController(AppKit.NSObject):
 
     # ----------------------------------------------------------------- sync
 
-    def sync_now(self, notify_result: bool = True, changed_paths: list[str] | None = None, always_notify: bool = False) -> None:
+    def sync_now(self, notify_result: bool = True, changed_paths: list[str] | None = None) -> None:
         # Only flash the icon for user-visible triggers (button click, a real
         # external file change); silent background ticks stay quiet so the
         # icon isn't constantly flickering. sync_now() always runs on a
@@ -134,22 +132,11 @@ class MCPMenuBarController(AppKit.NSObject):
         finally:
             if notify_result:
                 AppHelper.callAfter(self._set_menubar_icon, False)
-        if always_notify and not result.error:
-            # Give the "Sync Now" button a brief checkmark state so a click
-            # always has visible feedback, even when nothing needed to change.
-            self._sync_flash_until = time.time() + 1.6
-            AppHelper.callAfter(Foundation.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_, 1.6, self, "clearSyncFlash:", None, False)
         AppHelper.callAfter(self._rebuild_content)
-        if result.error:
-            notify(APP_NAME, f"Sync error: {result.error}")
-        elif result.changed_tools and (notify_result or always_notify):
+        if notify_result and result.changed_tools and not result.error:
             notify(APP_NAME, "Synced: " + ", ".join(result.changed_tools))
-        elif always_notify:
-            notify(APP_NAME, "Already in sync")
-
-    def clearSyncFlash_(self, timer) -> None:
-        self._sync_flash_until = 0.0
-        self._rebuild_content()
+        elif result.error:
+            notify(APP_NAME, f"Sync error: {result.error}")
 
     def _on_files_changed(self, changed_paths: list[str]) -> None:
         if sync_engine.seconds_since_last_sync() < SELF_WRITE_SUPPRESS_SECONDS:
@@ -230,7 +217,7 @@ class MCPMenuBarController(AppKit.NSObject):
         self._rebuild_content()
 
     def syncNowClicked_(self, sender) -> None:
-        threading.Thread(target=lambda: self.sync_now(notify_result=True, always_notify=True), daemon=True).start()
+        threading.Thread(target=lambda: self.sync_now(notify_result=True), daemon=True).start()
 
     def toggleStartAtLogin_(self, sender) -> None:
         enabled = sender.state() == AppKit.NSControlStateValueOn
@@ -354,8 +341,7 @@ class MCPMenuBarController(AppKit.NSObject):
         footer_y -= SEP_H
         self._footer_view.addSubview_(_separator(Foundation.NSMakeRect(MARGIN, footer_y + 4, WIDTH - 2 * MARGIN, 1)))
         footer_y -= FOOTER_ROW_H
-        sync_title = "\u2713 Synced" if time.time() < self._sync_flash_until else "Sync Now"
-        self._footer_view.addSubview_(self._build_action_button(sync_title, "syncNowClicked:", footer_y))
+        self._footer_view.addSubview_(self._build_action_button("Sync Now", "syncNowClicked:", footer_y))
         footer_y -= FOOTER_ROW_H
         self._footer_view.addSubview_(self._build_switch_row("Start at Login", autostart.is_enabled(), "toggleStartAtLogin:", footer_y))
         footer_y -= FOOTER_ROW_H

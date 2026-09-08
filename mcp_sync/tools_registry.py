@@ -162,6 +162,101 @@ def _vscode_adapter() -> Adapter:
     return Adapter(read=read, write=write)
 
 
+def _continue_yaml_adapter() -> Adapter:
+    """Continue's current config.yaml (schema v1) stores servers as a *list*
+    under "mcpServers", each entry keyed by its own "name" field - unlike
+    every other tool's name-keyed dict. Remote servers use type "sse" or
+    "streamable-http" and nest auth headers under "requestOptions.headers"
+    rather than a top-level "headers" key. The legacy config.json's
+    "mcpServers" object (still present on disk in some installs) is no
+    longer read by current Continue versions, so this targets config.yaml
+    directly instead."""
+
+    def read(path: str) -> ServerMap:
+        data = _read_yaml(path)
+        raw = data.get("mcpServers") or []
+        servers: ServerMap = {}
+        if not isinstance(raw, list):
+            return servers
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name")
+            if not name:
+                continue
+            if "url" in entry:
+                headers = (entry.get("requestOptions") or {}).get("headers") or {}
+                servers[name] = {"url": entry.get("url", ""), "headers": headers, "type": "http"}
+            else:
+                servers[name] = {
+                    "command": entry.get("command", ""),
+                    "args": entry.get("args", []) or [],
+                    "env": entry.get("env", {}) or {},
+                }
+        return servers
+
+    def write(path: str, servers: ServerMap) -> None:
+        data = _read_yaml(path)
+        # Rebuild the list from scratch each time so a deleted/renamed
+        # server actually disappears here too.
+        out = []
+        for name, cfg in servers.items():
+            if "url" in cfg:
+                entry: dict = {"name": name, "type": "streamable-http", "url": cfg.get("url", "")}
+                headers = cfg.get("headers") or {}
+                if headers:
+                    entry["requestOptions"] = {"headers": headers}
+            else:
+                entry = {
+                    "name": name,
+                    "command": cfg.get("command", ""),
+                    "args": cfg.get("args", []) or [],
+                }
+                env = cfg.get("env") or {}
+                if env:
+                    entry["env"] = env
+            out.append(entry)
+        data["mcpServers"] = out
+        _write_yaml(path, data)
+
+    return Adapter(read=read, write=write)
+
+
+def _streamable_http_adapter(remote_type: str, key: str = "mcpServers") -> Adapter:
+    """Some tools reject the whole settings file if a remote server's "type"
+    is the plain "http" used as the canonical/VS Code spelling - their strict
+    schema only accepts a specific spelling of "streamable http" instead
+    (and it varies *between* these tools despite sharing a common ancestor):
+    Roo Code wants "streamable-http", Cline (both the VS Code extension and
+    the standalone CLI) wants "streamableHttp". `remote_type` is that exact
+    string. Translates only that one field; everything else passes through
+    untouched, same as the generic adapter."""
+
+    def read(path: str) -> ServerMap:
+        data = _read_json(path)
+        raw = data.get(key) or {}
+        servers: ServerMap = {}
+        for name, cfg in raw.items():
+            cfg = copy.deepcopy(cfg)
+            if "url" in cfg and cfg.get("type") == remote_type:
+                cfg["type"] = "http"
+            servers[name] = cfg
+        return servers
+
+    def write(path: str, servers: ServerMap) -> None:
+        data = _read_json(path)
+        out = {}
+        for name, cfg in servers.items():
+            cfg = copy.deepcopy(cfg)
+            if "url" in cfg and cfg.get("type") in (None, "http"):
+                cfg["type"] = remote_type
+            out[name] = cfg
+        data[key] = out
+        _write_json(path, data)
+
+    return Adapter(read=read, write=write)
+
+
 def _codex_toml_adapter() -> Adapter:
     """Codex's config.toml uses a [mcp_servers.<name>] table per server."""
 
@@ -485,8 +580,8 @@ def build_registry() -> Dict[str, ToolSpec]:
         ),
         ToolSpec(
             name="Continue",
-            path=_mac_windows_linux("~/.continue/config.json", "~/.continue/config.json", "%USERPROFILE%\\.continue\\config.json"),
-            adapter=_generic_mcp_servers_key_adapter(),
+            path=_mac_windows_linux("~/.continue/config.yaml", "~/.continue/config.yaml", "%USERPROFILE%\\.continue\\config.yaml"),
+            adapter=_continue_yaml_adapter(),
             extension_globs=("~/.vscode/extensions/continue.continue-*",),
         ),
         ToolSpec(
@@ -496,7 +591,7 @@ def build_registry() -> Dict[str, ToolSpec]:
                 "~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json",
                 "%APPDATA%\\Code\\User\\globalStorage\\rooveterinaryinc.roo-cline\\settings\\mcp_settings.json",
             ),
-            adapter=_generic_mcp_servers_key_adapter(),
+            adapter=_streamable_http_adapter("streamable-http"),
             doc_url="https://docs.roocode.com/features/mcp/using-mcp-in-roo-code",
             extension_globs=("~/.vscode/extensions/rooveterinaryinc.roo-cline-*",),
         ),
@@ -507,9 +602,45 @@ def build_registry() -> Dict[str, ToolSpec]:
                 "~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json",
                 "%APPDATA%\\Code\\User\\globalStorage\\saoudrizwan.claude-dev\\settings\\cline_mcp_settings.json",
             ),
-            adapter=_generic_mcp_servers_key_adapter(),
+            adapter=_streamable_http_adapter("streamableHttp"),
             doc_url="https://docs.cline.bot/mcp/configuring-mcp-servers",
             extension_globs=("~/.vscode/extensions/saoudrizwan.claude-dev-*",),
+        ),
+        ToolSpec(
+            # Cline also ships a standalone/CLI app (separate from the VS
+            # Code extension above), with its own config file and its own
+            # "cline" binary - distinct install, distinct path, so it needs
+            # its own registry entry rather than being folded into "Cline".
+            name="Cline (CLI)",
+            path=_mac_windows_linux(
+                "~/.cline/data/settings/cline_mcp_settings.json",
+                "~/.cline/data/settings/cline_mcp_settings.json",
+                "%USERPROFILE%\\.cline\\data\\settings\\cline_mcp_settings.json",
+            ),
+            adapter=_streamable_http_adapter("streamableHttp"),
+            doc_url="https://docs.cline.bot/mcp/configuring-mcp-servers",
+            binary_names=("cline",),
+        ),
+        ToolSpec(
+            name="Kilo Code",
+            path=_mac_windows_linux(
+                "~/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json",
+                "~/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json",
+                "%APPDATA%\\Code\\User\\globalStorage\\kilocode.kilo-code\\settings\\mcp_settings.json",
+            ),
+            adapter=_streamable_http_adapter("streamable-http"),
+            doc_url="https://kilocode.ai/docs/features/mcp/using-mcp-in-kilo-code",
+            extension_globs=("~/.vscode/extensions/kilocode.kilo-code-*",),
+        ),
+        ToolSpec(
+            name="Zoo Code",
+            path=_mac_windows_linux(
+                "~/Library/Application Support/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json",
+                "~/.config/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json",
+                "%APPDATA%\\Code\\User\\globalStorage\\zoocodeorganization.zoo-code\\settings\\mcp_settings.json",
+            ),
+            adapter=_streamable_http_adapter("streamable-http"),
+            extension_globs=("~/.vscode/extensions/zoocodeorganization.zoo-code-*",),
         ),
         ToolSpec(
             name="Amp",

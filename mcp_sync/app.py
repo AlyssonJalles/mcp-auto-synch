@@ -147,6 +147,15 @@ def main() -> None:
     toggle a tool and looks like a real app, not a plain OS menu). Falls
     back to the cross-platform pystray tray icon everywhere else, or if
     PyObjC isn't installed."""
+    try:
+        import setproctitle
+
+        # Otherwise this shows up as "Python"/"python3" in Activity Monitor,
+        # Task Manager, `ps`, etc. - not the interpreter's own name.
+        setproctitle.setproctitle("mcp-auto-synch")
+    except ImportError:
+        pass
+
     from .platform_utils import IS_MAC
 
     if IS_MAC:

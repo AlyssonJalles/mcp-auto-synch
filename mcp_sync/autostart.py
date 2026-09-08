@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 import sys
+import sysconfig
 
 from .platform_utils import IS_LINUX, IS_MAC, IS_WINDOWS, home
 
 _LABEL = "com.mcpsync.app"
+_PROC_NAME = "mcp-auto-synch"
 
 
 def _launch_command() -> list[str]:
@@ -17,14 +21,139 @@ def _launch_command() -> list[str]:
 
 
 # --------------------------------------------------------------------- macOS
+#
+# Both the process name shown in Activity Monitor/`ps` and the icon shown
+# there (and in the Force Quit Applications window) are read from the
+# *executed file itself*, not anything settable at runtime from inside the
+# process - `setproctitle` and `NSApplication.setApplicationIconImage_` only
+# affect `ps`/`top`'s rendering and the Dock/Cmd-Tab icon respectively, not
+# these two surfaces. Getting both right requires a real, if minimal, .app
+# bundle: a fixed-name executable under Contents/MacOS (kernel process name),
+# plus an Info.plist declaring Contents/Resources/AppIcon.icns (the icon
+# LaunchServices resolves for that process). `_macos_ensure_app_bundle`
+# builds this once under ~/.mcp-sync and self-heals it on every enable().
+
+
+def _macos_app_bundle_dir() -> str:
+    return os.path.join(home(), ".mcp-sync", "MCP Sync.app")
+
+
+def _macos_app_icon_source() -> str:
+    return os.path.join(os.path.dirname(__file__), "assets", "logos", "_mcp_synch.png")
+
+
+def _macos_ensure_named_interpreter(target: str) -> None:
+    real_interpreter = os.path.realpath(sys.executable)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    if os.path.exists(target) and os.path.realpath(target) == real_interpreter:
+        return
+    if os.path.lexists(target):
+        os.remove(target)
+    try:
+        os.link(real_interpreter, target)
+    except OSError:
+        shutil.copy2(real_interpreter, target)
+
+
+def _macos_ensure_icon(resources_dir: str) -> None:
+    """Builds Contents/Resources/AppIcon.icns from the app's own PNG logo via
+    `sips`/`iconutil` (both ship with every macOS install). Skipped/left as-is
+    if the source art is missing or those tools error out - a missing icon
+    just means the bundle falls back to a generic one, not a broken app."""
+    icns_path = os.path.join(resources_dir, "AppIcon.icns")
+    source_png = _macos_app_icon_source()
+    if not os.path.exists(source_png):
+        return
+    if os.path.exists(icns_path) and os.path.getmtime(icns_path) >= os.path.getmtime(source_png):
+        return
+    iconset_dir = icns_path + ".iconset"
+    try:
+        if os.path.exists(iconset_dir):
+            shutil.rmtree(iconset_dir)
+        os.makedirs(iconset_dir)
+        for size in (16, 32, 128, 256, 512):
+            subprocess.run(
+                ["sips", "-z", str(size), str(size), source_png, "--out", os.path.join(iconset_dir, f"icon_{size}x{size}.png")],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            double = size * 2
+            subprocess.run(
+                ["sips", "-z", str(double), str(double), source_png, "--out", os.path.join(iconset_dir, f"icon_{size}x{size}@2x.png")],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        subprocess.run(["iconutil", "-c", "icns", iconset_dir, "-o", icns_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+    finally:
+        shutil.rmtree(iconset_dir, ignore_errors=True)
+
+
+def _macos_ensure_app_bundle() -> str:
+    """Builds/refreshes the .app bundle and returns its executable's path."""
+    bundle_dir = _macos_app_bundle_dir()
+    contents_dir = os.path.join(bundle_dir, "Contents")
+    macos_dir = os.path.join(contents_dir, "MacOS")
+    resources_dir = os.path.join(contents_dir, "Resources")
+    os.makedirs(macos_dir, exist_ok=True)
+    os.makedirs(resources_dir, exist_ok=True)
+
+    executable = os.path.join(macos_dir, _PROC_NAME)
+    _macos_ensure_named_interpreter(executable)
+    _macos_ensure_icon(resources_dir)
+
+    info_plist = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>MCP Sync</string>
+    <key>CFBundleDisplayName</key>
+    <string>MCP Sync</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.mcpsync.app.bundle</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>{_PROC_NAME}</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSUIElement</key>
+    <true/>
+</dict>
+</plist>
+"""
+    with open(os.path.join(contents_dir, "Info.plist"), "w", encoding="utf-8") as fh:
+        fh.write(info_plist)
+
+    # Nudges LaunchServices to pick up the (re)built bundle/icon immediately,
+    # instead of waiting for its own periodic rescan.
+    lsregister = (
+        "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
+        "LaunchServices.framework/Support/lsregister"
+    )
+    os.system(f'"{lsregister}" -f "{bundle_dir}" >/dev/null 2>&1')
+
+    return executable
+
 
 def _macos_plist_path() -> str:
     return os.path.join(home(), "Library", "LaunchAgents", f"{_LABEL}.plist")
 
 
 def _macos_enable() -> None:
-    cmd = _launch_command()
+    interpreter = _macos_ensure_app_bundle()
+    cmd = [interpreter, "-m", "mcp_sync.app"]
     args_xml = "\n".join(f"        <string>{c}</string>" for c in cmd)
+    # The renamed interpreter file above is no longer at its original
+    # install path, so it can't find its own standard library relative to
+    # itself the way it normally would - PYTHONHOME points it back at the
+    # real interpreter's install prefix, and PYTHONPATH points it at this
+    # venv's site-packages (where mcp_sync and its dependencies live),
+    # since it won't auto-detect the venv via a co-located pyvenv.cfg either.
     plist = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -35,6 +164,13 @@ def _macos_enable() -> None:
     <array>
 {args_xml}
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONHOME</key>
+        <string>{sys.base_prefix}</string>
+        <key>PYTHONPATH</key>
+        <string>{sysconfig.get_paths()['purelib']}</string>
+    </dict>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>

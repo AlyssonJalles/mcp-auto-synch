@@ -5,7 +5,8 @@ sistema**, e mantém a configuração dos seus **servidores MCP (Model Context
 Protocol)** sincronizada entre todas as ferramentas de IA instaladas na sua
 máquina — Codex, Claude Code, Cursor, Gemini CLI, GitHub Copilot CLI, VS
 Code, OpenCode, Windsurf, Antigravity, Zed, Continue, Roo Code, Claude
-Desktop, Cline, Amp, Kiro, Amazon Q, Goose, Warp, Trae, LM Studio e Grok.
+Desktop, Cline, Kilo Code, Zoo Code, Amp, Kiro, Amazon Q, Goose, Warp, Trae,
+LM Studio e Grok.
 
 Funciona em **macOS (Apple Silicon e Intel), Ubuntu/Linux e Windows**.
 
@@ -124,5 +125,6 @@ Sim, o app não faz nenhuma chamada de rede — é 100% local.
 ## Documentação completa (em inglês)
 
 Veja [README.md](README.md) para a lista completa de ferramentas
-suportadas, caminhos de configuração em cada sistema operacional, e
-instruções de desenvolvimento.
+suportadas, caminhos de configuração em cada sistema operacional,
+instruções de desenvolvimento, e a seção "Function reference" com uma
+tabela explicando, função por função, o que cada parte do código faz.
