@@ -17,7 +17,7 @@ GROUPS: List[CompanyGroup] = [
     CompanyGroup("Anthropic", ["Claude Code", "Claude Desktop"], "company_anthropic.png"),
     CompanyGroup("OpenAI", ["Codex"], "company_openai.png"),
     CompanyGroup("Google", ["Gemini CLI", "Antigravity"], "company_google.png"),
-    CompanyGroup("Microsoft", ["Visual Studio Code", "GitHub Copilot CLI"], "company_microsoft.png"),
+    CompanyGroup("Microsoft", ["Visual Studio Code", "GitHub Copilot CLI", "GitHub Copilot Chat"], "company_microsoft.png"),
     CompanyGroup("SpaceX", ["Cursor"], "company_spacex.png"),
     CompanyGroup("Zed", ["Zed"], "zed-hosted.png"),
     CompanyGroup("Codeium", ["Windsurf"], "windsurf.png"),

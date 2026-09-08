@@ -404,19 +404,20 @@ class MCPMenuBarController(AppKit.NSObject):
             tiny_view.setImage_(_pil_to_nsimage(company_logo))
             row.addSubview_(tiny_view)
             cursor_x += 15
+        folder_x = WIDTH - 127
         secondary_text = f"{company} \u00b7 {status.server_count} server{'s' if status.server_count != 1 else ''}"
         if not is_installed:
             secondary_text = f"{company} \u00b7 not installed"
         row.addSubview_(
             _label(
                 secondary_text,
-                Foundation.NSMakeRect(cursor_x, sec_y, 125, 14),
+                Foundation.NSMakeRect(cursor_x, sec_y, max(20, folder_x - cursor_x - 8), 14),
                 size=10,
                 color=AppKit.NSColor.secondaryLabelColor(),
             )
         )
 
-        reveal_btn = self._build_reveal_button(status.path, index, cursor_x + 128, sec_y - 2)
+        reveal_btn = self._build_reveal_button(status.path, index, folder_x, sec_y - 2)
         reveal_btn.setEnabled_(is_installed)
         row.addSubview_(reveal_btn)
 
