@@ -38,6 +38,9 @@ _LOGO_FILES = {
     "Trae": "trae.png",
     "Warp": "warp.png",
     "Grok": "grok.png",
+    "Amp": "Amp.jpeg",
+    "Amazon Q": "amazon-q.png",
+    "Goose": "goose.png",
 }
 
 # fallback monogram badges, only used if a bundled logo is missing above.
@@ -109,7 +112,7 @@ def get_badge(tool_name: str) -> Image.Image:
             img = Image.open(path).convert("RGBA")
             # Keep a small inset so logos whose artwork reaches the source
             # edge are not clipped by the circular UI mask.
-            inset = 4 if filename.startswith("github-copilot") else 0
+            inset = 4 if filename.startswith("github-copilot") or filename == "Amp.jpeg" else 0
             content_size = _SIZE - inset * 2
             img.thumbnail((content_size, content_size), Image.LANCZOS)
             fitted = Image.new("RGBA", (_SIZE, _SIZE), (255, 255, 255, 255))

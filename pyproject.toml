@@ -29,4 +29,4 @@ mcp-sync = "mcp_sync.app:main"
 include = ["mcp_sync*"]
 
 [tool.setuptools.package-data]
-mcp_sync = ["assets/logos/*.png", "assets/logos/*.jpg"]
+mcp_sync = ["assets/logos/*.png", "assets/logos/*.jpg", "assets/logos/*.jpeg"]
