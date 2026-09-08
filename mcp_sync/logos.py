@@ -53,6 +53,7 @@ _WIDE_INSET_FILES = {"amp.jpeg", "amazon-q.png", "goose.png", "lm-studio.jpeg"}
 # the inset margin instead of the default white. Sampled from the source art.
 _BADGE_BACKGROUNDS = {
     "Amp": (23, 38, 34, 255),
+    "LM Studio": (96, 88, 224, 255),
 }
 
 # fallback monogram badges, only used if a bundled logo is missing above.
