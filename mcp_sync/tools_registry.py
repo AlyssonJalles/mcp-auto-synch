@@ -199,7 +199,9 @@ def _zed_adapter() -> Adapter:
 
     def write(path: str, servers: ServerMap) -> None:
         data = _read_json(path)
-        out = data.get("context_servers") or {}
+        # Rebuild the section from scratch each time (not merged onto the
+        # old one) so a deleted/renamed server actually disappears here too.
+        out: dict = {}
         for name, cfg in servers.items():
             if "command" not in cfg:
                 continue  # Zed's custom context servers only support local stdio commands
@@ -243,7 +245,9 @@ def _opencode_adapter() -> Adapter:
 
     def write(path: str, servers: ServerMap) -> None:
         data = _read_json(path)
-        out = data.get("mcp") or {}
+        # Rebuild the section from scratch each time (not merged onto the
+        # old one) so a deleted/renamed server actually disappears here too.
+        out: dict = {}
         for name, cfg in servers.items():
             if "url" in cfg:
                 out[name] = {
@@ -288,7 +292,9 @@ def _goose_adapter() -> Adapter:
 
     def write(path: str, servers: ServerMap) -> None:
         data = _read_yaml(path)
-        out = data.get("extensions") or {}
+        # Rebuild the section from scratch each time (not merged onto the
+        # old one) so a deleted/renamed server actually disappears here too.
+        out: dict = {}
         for name, cfg in servers.items():
             if "url" in cfg:
                 out[name] = {
