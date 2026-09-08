@@ -48,17 +48,19 @@ class MCPSyncApp:
 
     # ----------------------------------------------------------------- sync
 
-    def sync_now(self, notify_result: bool = True) -> None:
+    def sync_now(self, notify_result: bool = True, always_notify: bool = False) -> None:
         self._set_busy(True)
         try:
             result = sync_engine.run_sync()
         finally:
             self._set_busy(False)
         self._refresh_menu()
-        if notify_result and result.changed_tools and not result.error:
-            notify(APP_NAME, "Synced: " + ", ".join(result.changed_tools))
-        elif result.error:
+        if result.error:
             notify(APP_NAME, f"Sync error: {result.error}")
+        elif result.changed_tools and (notify_result or always_notify):
+            notify(APP_NAME, "Synced: " + ", ".join(result.changed_tools))
+        elif always_notify:
+            notify(APP_NAME, "Already in sync")
 
     def _set_busy(self, busy: bool) -> None:
         try:
@@ -106,7 +108,7 @@ class MCPSyncApp:
             yield pystray.MenuItem(f"Not detected: {', '.join(not_installed)}", None, enabled=False)
 
         yield pystray.Menu.SEPARATOR
-        yield pystray.MenuItem("Sync Now", lambda icon, item: self.sync_now(notify_result=True))
+        yield pystray.MenuItem("Sync Now", lambda icon, item: self.sync_now(notify_result=True, always_notify=True))
         yield pystray.MenuItem(
             "Start at Login",
             self._toggle_start_at_login,
