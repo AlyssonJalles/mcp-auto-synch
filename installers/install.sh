@@ -46,7 +46,9 @@ if [ -z "$WHEEL_URL" ]; then
     exit 1
 fi
 
-TMP_WHEEL="$(mktemp -t mcp-sync-XXXXXX.whl)"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+TMP_WHEEL="$TMP_DIR/$(basename "$WHEEL_URL")"
 echo "[+] Downloading $WHEEL_URL"
 curl -fsSL "$WHEEL_URL" -o "$TMP_WHEEL"
 
@@ -58,7 +60,6 @@ else
 fi
 "$VENV_DIR/bin/pip" install --quiet --upgrade pip
 "$VENV_DIR/bin/pip" install --quiet "$TMP_WHEEL"
-rm -f "$TMP_WHEEL"
 
 echo "[+] Registering login item and starting the app..."
 # launchctl load -w with RunAtLoad already starts the app on macOS - do not
