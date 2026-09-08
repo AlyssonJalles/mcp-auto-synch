@@ -41,7 +41,13 @@ _LOGO_FILES = {
     "Amp": "Amp.jpeg",
     "Amazon Q": "amazon-q.png",
     "Goose": "goose.png",
+    "LM Studio": "lm-studio.jpeg",
 }
+
+# logos whose source artwork reaches the image edge (solid-background app
+# icons rather than padded transparent glyphs) get a bigger inset so they
+# sit visibly inside the circular badge instead of touching/clipping at it.
+_WIDE_INSET_FILES = {"amp.jpeg", "amazon-q.png", "goose.png", "lm-studio.jpeg"}
 
 # fallback monogram badges, only used if a bundled logo is missing above.
 _MONOGRAM_BADGES = {
@@ -112,7 +118,12 @@ def get_badge(tool_name: str) -> Image.Image:
             img = Image.open(path).convert("RGBA")
             # Keep a small inset so logos whose artwork reaches the source
             # edge are not clipped by the circular UI mask.
-            inset = 4 if filename.startswith("github-copilot") or filename == "Amp.jpeg" else 0
+            if filename.startswith("github-copilot"):
+                inset = 4
+            elif filename.lower() in _WIDE_INSET_FILES:
+                inset = 6
+            else:
+                inset = 0
             content_size = _SIZE - inset * 2
             img.thumbnail((content_size, content_size), Image.LANCZOS)
             fitted = Image.new("RGBA", (_SIZE, _SIZE), (255, 255, 255, 255))
