@@ -40,6 +40,8 @@ SEARCH_H = 26
 FOOTER_ROW_H = 36
 SEP_H = 9
 MARGIN = 14
+MAX_POPOVER_HEIGHT = 760
+LIST_VIEWPORT_HEIGHT = 360
 
 
 def _pil_to_nsimage(img, point_height: "float | None" = None) -> "AppKit.NSImage":
@@ -256,7 +258,15 @@ class MCPMenuBarController(AppKit.NSObject):
         )
         self._top_separator = _separator(Foundation.NSMakeRect(MARGIN, 0, WIDTH - 2 * MARGIN, 1))
         self._list_view = AppKit.NSView.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, WIDTH, 10))
-        for subview in (self._title_label, self._subtitle_label, self._search_field, self._top_separator, self._list_view):
+        self._list_scroll = AppKit.NSScrollView.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, WIDTH, LIST_VIEWPORT_HEIGHT))
+        self._list_scroll.setHasVerticalScroller_(True)
+        self._list_scroll.setHasHorizontalScroller_(False)
+        self._list_scroll.setAutohidesScrollers_(True)
+        self._list_scroll.setBorderType_(AppKit.NSNoBorder)
+        self._list_scroll.setDrawsBackground_(False)
+        self._list_scroll.setDocumentView_(self._list_view)
+        self._footer_view = AppKit.NSView.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, WIDTH, FOOTER_ROW_H * 4 + SEP_H))
+        for subview in (self._title_label, self._subtitle_label, self._search_field, self._top_separator, self._list_scroll, self._footer_view):
             self._root_view.addSubview_(subview)
         self._view_controller.setView_(self._root_view)
         self._chrome_built = True
@@ -297,12 +307,16 @@ class MCPMenuBarController(AppKit.NSObject):
         if not rows and query:
             blocks.append(("dim_label", f'No provider matches "{query}"', FOOTER_ROW_H))
 
-        list_h = sum(h for _, _, h in blocks) + SEP_H + FOOTER_ROW_H * 4 + MARGIN
+        rows_h = sum(h for _, _, h in blocks)
+        footer_h = SEP_H + FOOTER_ROW_H * 4
+        list_h = max(rows_h, LIST_VIEWPORT_HEIGHT)
 
         for old_subview in list(self._list_view.subviews()):
             old_subview.removeFromSuperview()
+        for old_subview in list(self._footer_view.subviews()):
+            old_subview.removeFromSuperview()
 
-        y = list_h
+        y = rows_h
         for kind, payload, h in blocks:
             y -= h
             if kind == "row":
@@ -321,29 +335,24 @@ class MCPMenuBarController(AppKit.NSObject):
                     )
                 )
 
-        y -= SEP_H
-        self._list_view.addSubview_(_separator(Foundation.NSMakeRect(MARGIN, y + 4, WIDTH - 2 * MARGIN, 1)))
+        self._list_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, max(rows_h, LIST_VIEWPORT_HEIGHT)))
 
-        y -= FOOTER_ROW_H
-        self._list_view.addSubview_(self._build_action_button("Sync Now", "syncNowClicked:", y))
+        footer_y = footer_h
+        footer_y -= SEP_H
+        self._footer_view.addSubview_(_separator(Foundation.NSMakeRect(MARGIN, footer_y + 4, WIDTH - 2 * MARGIN, 1)))
+        footer_y -= FOOTER_ROW_H
+        self._footer_view.addSubview_(self._build_action_button("Sync Now", "syncNowClicked:", footer_y))
+        footer_y -= FOOTER_ROW_H
+        self._footer_view.addSubview_(self._build_switch_row("Start at Login", autostart.is_enabled(), "toggleStartAtLogin:", footer_y))
+        footer_y -= FOOTER_ROW_H
+        self._footer_view.addSubview_(self._build_switch_row("Hide not installed", hide_not_installed, "toggleHideNotInstalled:", footer_y))
+        footer_y -= FOOTER_ROW_H
+        self._footer_view.addSubview_(self._build_action_button("About / Documentation", "openDocumentation:", footer_y))
+        footer_y -= FOOTER_ROW_H
+        self._footer_view.addSubview_(self._build_action_button("Quit", "quitClicked:", footer_y))
+        self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h + FOOTER_ROW_H))
 
-        y -= FOOTER_ROW_H
-        self._list_view.addSubview_(self._build_switch_row("Start at Login", autostart.is_enabled(), "toggleStartAtLogin:", y))
-
-        y -= FOOTER_ROW_H
-        self._list_view.addSubview_(
-            self._build_switch_row("Hide not installed", hide_not_installed, "toggleHideNotInstalled:", y)
-        )
-
-        y -= FOOTER_ROW_H
-        self._list_view.addSubview_(self._build_action_button("About / Documentation", "openDocumentation:", y))
-
-        y -= FOOTER_ROW_H
-        self._list_view.addSubview_(self._build_action_button("Quit", "quitClicked:", y))
-
-        self._list_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, list_h))
-
-        total_h = HEADER_H + SEARCH_H + 6 + SEP_H + list_h
+        total_h = min(MAX_POPOVER_HEIGHT, HEADER_H + SEARCH_H + 6 + SEP_H + LIST_VIEWPORT_HEIGHT + footer_h + FOOTER_ROW_H)
 
         y2 = total_h
         y2 -= HEADER_H
@@ -358,7 +367,12 @@ class MCPMenuBarController(AppKit.NSObject):
         y2 -= SEP_H
         self._top_separator.setFrame_(Foundation.NSMakeRect(MARGIN, y2 + 4, WIDTH - 2 * MARGIN, 1))
 
-        self._list_view.setFrame_(Foundation.NSMakeRect(0, y2 - list_h, WIDTH, list_h))
+        list_viewport_y = y2 - LIST_VIEWPORT_HEIGHT
+        self._list_scroll.setFrame_(Foundation.NSMakeRect(0, list_viewport_y, WIDTH, LIST_VIEWPORT_HEIGHT))
+        self._list_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, max(rows_h, LIST_VIEWPORT_HEIGHT)))
+        self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h + FOOTER_ROW_H))
+        footer_y = list_viewport_y - footer_h - FOOTER_ROW_H
+        self._footer_view.setFrameOrigin_(Foundation.NSMakePoint(0, footer_y))
         self._root_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, total_h))
 
         self._last_total_h = total_h

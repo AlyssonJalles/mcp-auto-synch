@@ -253,12 +253,13 @@ class ToolSpec:
     binary_names: tuple = field(default_factory=tuple)
     app_bundle_names: tuple = field(default_factory=tuple)
     extension_globs: tuple = field(default_factory=tuple)
+    require_presence_signal: bool = False
 
     def resolved_path(self) -> str:
         return expand(self.path)
 
     def is_present(self) -> bool:
-        if os.path.exists(self.resolved_path()):
+        if not self.require_presence_signal and os.path.exists(self.resolved_path()):
             return True
         for binary in self.binary_names:
             if shutil.which(binary):
@@ -329,6 +330,21 @@ def build_registry() -> Dict[str, ToolSpec]:
             adapter=_generic_mcp_servers_key_adapter(),
             doc_url="https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers",
             binary_names=("copilot",),
+        ),
+        ToolSpec(
+            name="GitHub Copilot Chat",
+            path=_mac_windows_linux(
+                "~/Library/Application Support/Code/User/mcp.json",
+                "~/.config/Code/User/mcp.json",
+                "%APPDATA%\\Code\\User\\mcp.json",
+            ),
+            adapter=_vscode_adapter(),
+            doc_url="https://code.visualstudio.com/docs/copilot/chat/mcp-servers",
+            extension_globs=(
+                "~/.vscode/extensions/github.copilot-chat-*",
+                "~/Library/Application Support/Code/User/workspaceStorage/*/GitHub.copilot-chat",
+            ),
+            require_presence_signal=True,
         ),
         ToolSpec(
             name="Visual Studio Code",
