@@ -104,6 +104,14 @@ def run_sync(changed_paths: Optional[List[str]] = None) -> SyncResult:
                     try:
                         tool.adapter.write(tool.resolved_path(), merged)
                         result.changed_tools.append(tool.name)
+                        # Mark "last write" the instant it happens, not after
+                        # the whole pass finishes - the watcher's debounced
+                        # file-change event needs this to land close enough
+                        # to the actual write for the self-write suppression
+                        # window (SELF_WRITE_SUPPRESS_SECONDS) to catch it,
+                        # otherwise a slow pass makes its own write look like
+                        # an external change and re-triggers a visible sync.
+                        _last_sync_end_ts = time.time()
                     except Exception as exc:  # keep going for other tools
                         result.error = f"{tool.name}: {exc}"
 
