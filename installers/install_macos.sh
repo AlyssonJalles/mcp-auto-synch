@@ -26,5 +26,6 @@ autostart.enable()
 PYEOF
 
 echo "[✔] Done. Look for the sync icon in the menu bar."
+echo "    A shortcut was added at /Applications/MCP Sync.app (also in Launchpad/Spotlight)."
 echo "    Logs: /tmp/mcp-sync.log and /tmp/mcp-sync.err"
 echo "    To uninstall: installers/uninstall_macos.sh"

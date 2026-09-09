@@ -1,4 +1,9 @@
-# MCP Sync
+<table width="100%">
+<tr>
+<td width="20%"><img src="mcp_sync/assets/logos/_mcp_synch.png" alt="Demonstração do aplicativo" width="100%"></td>
+<td width="100%"><h1 align="left">Complete MCP Synchronization</h1></td>
+</tr>
+</table>
 
 A tiny, always-on **menu bar / system tray app** that keeps your **MCP
 (Model Context Protocol) server configuration** in sync across every AI
@@ -55,6 +60,34 @@ Each installer creates an isolated Python virtual environment under
 Python), registers the app to start at login, and launches it immediately.
 
 **Uninstall**: run the matching `installers/uninstall_*` script for your OS.
+
+## Opening the app
+
+The installer launches the app right away and registers it to start
+automatically at every login, so most of the time there's nothing to run.
+If it's not currently running, here's how to start it back up:
+
+**macOS**
+```bash
+launchctl load -w ~/Library/LaunchAgents/com.mcpsync.app.plist
+```
+
+**Linux**
+```bash
+~/.mcp-sync/venv/bin/python3 -m mcp_sync.app &
+```
+
+**Windows**
+```powershell
+& "$env:USERPROFILE\.mcp-sync\venv\Scripts\pythonw.exe" -m mcp_sync.app
+```
+
+It's a menu bar / system tray app, not a window — once running, look for its
+icon in the menu bar (macOS) or system tray (Windows/Linux).
+
+**On macOS**, the installer also adds a `/Applications/MCP Sync.app` shortcut
+(a symlink to the real bundle under `~/.mcp-sync`, using the same icon shown
+in Activity Monitor), so the app also shows up in Launchpad and Spotlight.
 
 ## Why
 

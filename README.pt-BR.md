@@ -1,4 +1,9 @@
-# MCP Sync
+<table width="100%">
+<tr>
+<td width="20%"><img src="mcp_sync/assets/logos/_mcp_synch.png" alt="Demonstração do aplicativo" width="100%"></td>
+<td width="100%"><h1 align="left"> Sincronização MCP completa</h1></td>
+</tr>
+</table>
 
 Um aplicativo leve, sempre ativo, que fica na **barra de menu / bandeja do
 sistema** e mantém a configuração dos seus **servidores MCP (Model Context
@@ -65,6 +70,36 @@ sistema), registra o app para iniciar no login e já inicia ele na hora.
 
 **Para desinstalar**: rode o script `installers/uninstall_*` correspondente ao
 seu sistema operacional.
+
+## Abrindo o app
+
+O instalador já inicia o app na hora e o registra para começar
+automaticamente em todo login, então na maior parte do tempo não há nada para
+rodar. Se ele não estiver em execução no momento, veja como iniciá-lo de novo:
+
+**macOS**
+```bash
+launchctl load -w ~/Library/LaunchAgents/com.mcpsync.app.plist
+```
+
+**Linux**
+```bash
+~/.mcp-sync/venv/bin/python3 -m mcp_sync.app &
+```
+
+**Windows**
+```powershell
+& "$env:USERPROFILE\.mcp-sync\venv\Scripts\pythonw.exe" -m mcp_sync.app
+```
+
+É um app de barra de menu / bandeja do sistema, não uma janela — depois de
+iniciado, procure o ícone na barra de menu (macOS) ou na bandeja do sistema
+(Windows/Linux).
+
+**No macOS**, o instalador também cria um atalho em `/Applications/MCP Sync.app`
+(um link simbólico para o bundle real dentro de `~/.mcp-sync`, com o mesmo
+ícone mostrado no Monitor de Atividade), então o app também aparece no
+Launchpad e no Spotlight.
 
 ## Por que existe
 

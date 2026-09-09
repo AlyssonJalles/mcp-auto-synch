@@ -32,6 +32,7 @@ APP_NAME = "MCP"
 PERIODIC_SYNC_SECONDS = 60
 SELF_WRITE_SUPPRESS_SECONDS = 3.0
 MENUBAR_ICON_POINT_HEIGHT = 18.0  # standard macOS menu bar glyph height
+FLASH_ICON_SECONDS = 0.6  # how long the icon stays green after an actual write
 
 WIDTH = 320
 ROW_H = 44
@@ -118,21 +119,35 @@ class MCPMenuBarController(AppKit.NSObject):
 
     # ----------------------------------------------------------------- sync
 
-    def sync_now(self, notify_result: bool = True, changed_paths: list[str] | None = None) -> None:
-        # Only flash the icon for user-visible triggers (button click, a real
-        # external file change); silent background ticks stay quiet so the
-        # icon isn't constantly flickering. sync_now() always runs on a
+    def sync_now(
+        self,
+        notify_result: bool = True,
+        changed_paths: list[str] | None = None,
+        always_rebuild: bool = True,
+    ) -> None:
+        # A watched tool often rewrites its own config file for reasons that
+        # have nothing to do with MCP servers (e.g. Claude Code persisting
+        # session/usage state every few seconds) - that's a real external
+        # file change, so it's correct to check it, but it's not something
+        # worth showing. Gate the icon flash and the popover rebuild on
+        # result.changed_tools (something this app actually wrote) instead
+        # of on "a sync ran", or every such unrelated touch flashes the icon
+        # and - worse - tears down/rebuilds the popover's buttons while it's
+        # open, which can swallow a click if it lands mid-track (e.g. on
+        # Quit). always_rebuild=True (user-initiated actions: toggling a
+        # tool, clicking Sync Now, first load) keeps the previous
+        # always-refresh behavior since those need immediate UI feedback
+        # even when nothing needed rewriting. sync_now() always runs on a
         # background thread, so every AppKit call here must go through
         # AppHelper.callAfter - touching AppKit directly off the main thread
         # is what caused the intermittent layout/rendering glitches.
-        if notify_result:
-            AppHelper.callAfter(self._set_menubar_icon, True)
-        try:
-            result = sync_engine.run_sync(changed_paths=changed_paths)
-        finally:
+        result = sync_engine.run_sync(changed_paths=changed_paths)
+        if result.changed_tools:
             if notify_result:
-                AppHelper.callAfter(self._set_menubar_icon, False)
-        AppHelper.callAfter(self._rebuild_content)
+                AppHelper.callAfter(self._flash_menubar_icon)
+            AppHelper.callAfter(self._rebuild_content)
+        elif always_rebuild:
+            AppHelper.callAfter(self._rebuild_content)
         if notify_result and result.changed_tools and not result.error:
             notify(APP_NAME, "Synced: " + ", ".join(result.changed_tools))
         elif result.error:
@@ -141,15 +156,27 @@ class MCPMenuBarController(AppKit.NSObject):
     def _on_files_changed(self, changed_paths: list[str]) -> None:
         if sync_engine.seconds_since_last_sync() < SELF_WRITE_SUPPRESS_SECONDS:
             return  # our own write just triggered this event, not a real external change
-        threading.Thread(target=lambda: self.sync_now(notify_result=True, changed_paths=changed_paths), daemon=True).start()
+        threading.Thread(
+            target=lambda: self.sync_now(notify_result=True, changed_paths=changed_paths, always_rebuild=False),
+            daemon=True,
+        ).start()
 
     def periodicSyncTick_(self, timer) -> None:
-        threading.Thread(target=lambda: self.sync_now(notify_result=False), daemon=True).start()
+        threading.Thread(target=lambda: self.sync_now(notify_result=False, always_rebuild=False), daemon=True).start()
 
     def _set_menubar_icon(self, active: bool) -> None:
         img = _pil_to_nsimage(build_icon(active=active), point_height=MENUBAR_ICON_POINT_HEIGHT)
         img.setTemplate_(not active)
         self._status_item.button().setImage_(img)
+
+    def _flash_menubar_icon(self) -> None:
+        self._set_menubar_icon(True)
+        Foundation.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+            FLASH_ICON_SECONDS, self, "clearMenubarFlash:", None, False
+        )
+
+    def clearMenubarFlash_(self, timer) -> None:
+        self._set_menubar_icon(False)
 
     # ----------------------------------------------------------------- menu
 

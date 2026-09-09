@@ -38,6 +38,34 @@ def _macos_app_bundle_dir() -> str:
     return os.path.join(home(), ".mcp-sync", "MCP Sync.app")
 
 
+def _macos_applications_shortcut() -> str:
+    return "/Applications/MCP Sync.app"
+
+
+def _macos_ensure_applications_shortcut(bundle_dir: str) -> None:
+    """Symlinks the real .app bundle into /Applications so the same icon shown
+    in Activity Monitor also shows up in Launchpad/Spotlight. Best-effort:
+    skipped silently if /Applications isn't writable without elevation."""
+    shortcut = _macos_applications_shortcut()
+    if os.path.realpath(shortcut) == os.path.realpath(bundle_dir):
+        return
+    try:
+        if os.path.lexists(shortcut):
+            if not os.path.islink(shortcut):
+                return  # a real (non-symlink) app is there - don't touch it
+            os.remove(shortcut)
+        os.symlink(bundle_dir, shortcut)
+    except OSError:
+        return
+    # Spotlight (Cmd+Space) indexes on its own schedule and can take a while
+    # to pick up a freshly created symlink - nudge it immediately so the
+    # shortcut is searchable right after install instead of after a delay.
+    try:
+        subprocess.run(["mdimport", shortcut], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+    except Exception:
+        pass
+
+
 def _macos_app_icon_source() -> str:
     return os.path.join(os.path.dirname(__file__), "assets", "logos", "_mcp_synch.png")
 
@@ -136,6 +164,7 @@ def _macos_ensure_app_bundle() -> str:
         "LaunchServices.framework/Support/lsregister"
     )
     os.system(f'"{lsregister}" -f "{bundle_dir}" >/dev/null 2>&1')
+    _macos_ensure_applications_shortcut(bundle_dir)
 
     return executable
 

@@ -5,6 +5,7 @@ set -euo pipefail
 VENV_DIR="$HOME/.mcp-sync/venv"
 BIN_DIR="$HOME/.mcp-sync/bin"
 APP_BUNDLE="$HOME/.mcp-sync/MCP Sync.app"
+APP_SHORTCUT="/Applications/MCP Sync.app"
 PLIST="$HOME/Library/LaunchAgents/com.mcpsync.app.plist"
 
 echo "[+] Stopping MCP Sync..."
@@ -17,5 +18,8 @@ pkill -f "mcp-sync" 2>/dev/null || true
 
 echo "[+] Removing virtual environment..."
 rm -rf "$VENV_DIR" "$BIN_DIR" "$APP_BUNDLE"
+if [ -L "$APP_SHORTCUT" ]; then
+    rm -f "$APP_SHORTCUT"
+fi
 
 echo "[✔] MCP Sync removed. Your ~/.mcp-sync/settings.json was kept (delete it manually if you want a clean slate)."
