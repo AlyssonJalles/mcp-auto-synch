@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+from . import backup as backup_mod
 from . import settings
 from .tools_registry import REGISTRY, ServerMap, ToolSpec
 
@@ -77,8 +78,14 @@ def merge_servers(tools: List[ToolSpec]) -> Dict[str, dict]:
     return best
 
 
-def run_sync(changed_paths: Optional[List[str]] = None) -> SyncResult:
-    """Perform one full sync pass across all enabled + detected tools."""
+def run_sync(changed_paths: Optional[List[str]] = None, backup: bool = False) -> SyncResult:
+    """Perform one full sync pass across all enabled + detected tools.
+
+    `backup` gates whether each about-to-be-overwritten file is copied to
+    ~/.mcp-sync/backups first. It's opt-in per call (not "every sync writes a
+    backup") so silent/periodic passes don't fill that directory - callers
+    pass True only for the app's startup sync and the user-initiated "Sync
+    Now" action."""
     global _last_sync_end_ts
     with _sync_lock:
         result = SyncResult()
@@ -98,9 +105,21 @@ def run_sync(changed_paths: Optional[List[str]] = None) -> SyncResult:
                         merged.pop(removed_name, None)
             result.merged_server_names = sorted(merged.keys())
 
+            run_id = backup_mod.make_run_id() if backup else None
             for tool in tools:
                 current = _safe_read(tool)
                 if current != merged:
+                    if run_id is not None:
+                        try:
+                            # Safety principle: a write must never happen
+                            # without a restorable copy of what was there
+                            # before it. If the backup itself fails, skip
+                            # writing this tool rather than proceeding
+                            # unprotected.
+                            backup_mod.backup_file(tool.resolved_path(), tool.name, run_id)
+                        except Exception as exc:
+                            result.error = f"backup {tool.name}: {exc}"
+                            continue
                     try:
                         tool.adapter.write(tool.resolved_path(), merged)
                         result.changed_tools.append(tool.name)
@@ -116,6 +135,8 @@ def run_sync(changed_paths: Optional[List[str]] = None) -> SyncResult:
                         result.error = f"{tool.name}: {exc}"
 
             if result.changed_tools:
+                if run_id is not None:
+                    backup_mod.prune_old_backups()
                 data = settings.load()
                 import datetime
 

@@ -34,7 +34,7 @@ class MCPSyncApp:
             autostart.enable()
         self._watcher.start()
         threading.Thread(target=self._periodic_sync_loop, daemon=True).start()
-        self.sync_now(notify_result=False)
+        self.sync_now(notify_result=False, backup=True)
         self._icon.run()
 
     def _periodic_sync_loop(self) -> None:
@@ -48,10 +48,10 @@ class MCPSyncApp:
 
     # ----------------------------------------------------------------- sync
 
-    def sync_now(self, notify_result: bool = True, always_notify: bool = False) -> None:
+    def sync_now(self, notify_result: bool = True, always_notify: bool = False, backup: bool = False) -> None:
         self._set_busy(True)
         try:
-            result = sync_engine.run_sync()
+            result = sync_engine.run_sync(backup=backup)
         finally:
             self._set_busy(False)
         self._refresh_menu()
@@ -108,7 +108,7 @@ class MCPSyncApp:
             yield pystray.MenuItem(f"Not detected: {', '.join(not_installed)}", None, enabled=False)
 
         yield pystray.Menu.SEPARATOR
-        yield pystray.MenuItem("Sync Now", lambda icon, item: self.sync_now(notify_result=True, always_notify=True))
+        yield pystray.MenuItem("Sync Now", lambda icon, item: self.sync_now(notify_result=True, always_notify=True, backup=True))
         yield pystray.MenuItem(
             "Start at Login",
             self._toggle_start_at_login,

@@ -115,7 +115,7 @@ class MCPMenuBarController(AppKit.NSObject):
         self._timer = Foundation.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
             PERIODIC_SYNC_SECONDS, self, "periodicSyncTick:", None, True
         )
-        threading.Thread(target=lambda: self.sync_now(notify_result=False), daemon=True).start()
+        threading.Thread(target=lambda: self.sync_now(notify_result=False, backup=True), daemon=True).start()
 
     # ----------------------------------------------------------------- sync
 
@@ -124,6 +124,7 @@ class MCPMenuBarController(AppKit.NSObject):
         notify_result: bool = True,
         changed_paths: list[str] | None = None,
         always_rebuild: bool = True,
+        backup: bool = False,
     ) -> None:
         # A watched tool often rewrites its own config file for reasons that
         # have nothing to do with MCP servers (e.g. Claude Code persisting
@@ -141,7 +142,7 @@ class MCPMenuBarController(AppKit.NSObject):
         # background thread, so every AppKit call here must go through
         # AppHelper.callAfter - touching AppKit directly off the main thread
         # is what caused the intermittent layout/rendering glitches.
-        result = sync_engine.run_sync(changed_paths=changed_paths)
+        result = sync_engine.run_sync(changed_paths=changed_paths, backup=backup)
         if result.changed_tools:
             if notify_result:
                 AppHelper.callAfter(self._flash_menubar_icon)
@@ -244,7 +245,7 @@ class MCPMenuBarController(AppKit.NSObject):
         self._rebuild_content()
 
     def syncNowClicked_(self, sender) -> None:
-        threading.Thread(target=lambda: self.sync_now(notify_result=True), daemon=True).start()
+        threading.Thread(target=lambda: self.sync_now(notify_result=True, backup=True), daemon=True).start()
 
     def toggleStartAtLogin_(self, sender) -> None:
         enabled = sender.state() == AppKit.NSControlStateValueOn

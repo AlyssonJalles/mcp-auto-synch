@@ -112,34 +112,17 @@ você só precisa cadastrar um servidor uma única vez.
 
 ## Como é na prática
 
-- Um pequeno ícone com o texto "MCP" e setas de sincronização fica na barra de
-  menu (macOS) / bandeja do sistema (Windows, Linux) o tempo todo, e o app
-  inicia automaticamente no login. Ele fica verde enquanto uma sincronização
-  está rodando.
-- **No macOS**, clicar nele abre um painel nativo (não um menu comum do
-  sistema) com um campo de busca logo abaixo do horário da última
-  sincronização — digite para filtrar a lista por nome da ferramenta ou por
-  empresa (por exemplo, digitar "google" encontra Gemini CLI e Antigravity).
-  As ferramentas aparecem em ordem alfabética; cada linha mostra o logo
-  próprio, o nome da ferramenta em destaque e — discretamente, em cinza e com
-  um logo minúsculo — a empresa que a faz (o Claude Code, por exemplo, mostra
-  "Anthropic" embaixo), além da quantidade de servidores MCP, uma bolinha de
-  status e um interruptor liga/desliga:
+Um pequeno ícone "MCP" fica na barra de menu (macOS) / bandeja do sistema
+(Windows, Linux), ficando verde enquanto uma sincronização roda. Clicar nele
+abre uma lista pesquisável de cada ferramenta — logo, empresa, quantidade de
+servidores MCP e uma bolinha de status por linha (🟢 sincronizada, ⚪
+sincronização pendente, ⚫ desabilitada) — com um interruptor liga/desliga
+para cada uma, um botão "Sync Now" e um interruptor "Start at Login".
 
-  - 🟢 verde — instalada, habilitada e totalmente sincronizada
-  - ⚪ cinza — instalada e habilitada, mas com uma sincronização pendente
-    (resolve na próxima passagem, normalmente em poucos segundos)
-  - ⚫ preta — instalada, mas **você desligou a sincronização** dessa ferramenta
-  - Ferramentas não instaladas na máquina aparecem separadas e são ignoradas.
-
-  Ligar/desligar o interruptor de uma ferramenta, ou digitar na busca,
-  **mantém o painel aberto** e atualiza na hora — ele não fecha como um menu
-  normal faria. Clicar fora do painel fecha.
-- **No Windows/Linux**, as mesmas informações aparecem no menu nativo da
-  bandeja (pystray); como é padrão desses menus, ele fecha após um clique e
-  mostra o estado novo na próxima vez que for aberto.
-- "Sync Now" força uma sincronização imediata. "Start at Login" liga/desliga o
-  item de inicialização automática do sistema operacional.
+**No macOS** isso é um painel nativo que fica aberto enquanto você liga/desliga
+interruptores ou pesquisa — só fecha com um clique fora dele. **No
+Windows/Linux** é o menu de bandeja padrão, que fecha a cada clique como de
+costume.
 
 ## Como a sincronização funciona
 
@@ -161,39 +144,64 @@ você só precisa cadastrar um servidor uma única vez.
 Nada é enviado pela rede — o app só lê e escreve arquivos locais que já existem
 na sua máquina.
 
+## Backups
+
+Antes de sobrescrever o arquivo de configuração de uma ferramenta, o MCP Sync
+pode salvar uma cópia completa dele primeiro — mas só nos dois momentos em que
+uma mesclagem ruim seria realmente algo para você corrigir manualmente:
+
+- **Logo após a instalação**, na primeira sincronização feita quando o app
+  inicia pela primeira vez.
+- **Toda vez que você clica em "Sync Now"** no menu da bandeja / painel.
+
+A sincronização silenciosa a cada 60 segundos e a sincronização instantânea
+disparada pelo monitor de arquivos (quando uma ferramenta edita a própria
+configuração) **não** criam backups — do contrário essa pasta ficaria cheia
+de cópias quase idênticas a cada minuto.
+
+Os backups ficam salvos em:
+```
+~/.mcp-sync/backups/<data>_<hora>/<nome da ferramenta>/<nome do arquivo original>
+```
+por exemplo, `~/.mcp-sync/backups/2026-09-08_22-43-09/Cursor/mcp.json`. Todo
+arquivo tocado pela mesma sincronização que dispara backup fica na mesma pasta
+com timestamp, então sempre dá para saber o que foi sobrescrito junto. Só as
+30 pastas de backup mais recentes são mantidas — as mais antigas são apagadas
+automaticamente.
+
 ## Ferramentas suportadas e caminhos de configuração
 
 Em ordem alfabética. Cada ícone está padronizado em 42×42 para manter a coluna
 alinhada (alguns logos de origem não são perfeitamente quadrados, então ficam
 levemente esticados para caber).
 
-| Ferramenta                   | macOS                                                                                                             | Linux                                                                                         | Windows                                                                                       |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **Amazon Q**           | `~/.aws/amazonq/mcp.json`                                                                                       | `~/.aws/amazonq/mcp.json`                                                                   | `%USERPROFILE%\.aws\amazonq\mcp.json`                                                       |
-| **Amp**                | `~/.config/amp/settings.json`                                                                                   | `~/.config/amp/settings.json`                                                               | `%APPDATA%\amp\settings.json`                                                               |
-| **Antigravity**        | `~/.gemini/config/mcp_config.json`                                                                              | `~/.gemini/config/mcp_config.json`                                                          | `%USERPROFILE%\.gemini\config\mcp_config.json`                                              |
-| **Claude Code**        | `~/.claude.json`                                                                                                | `~/.claude.json`                                                                            | `%USERPROFILE%\.claude.json`                                                                |
-| **Claude Desktop**     | `~/Library/Application Support/Claude/claude_desktop_config.json`                                               | *(não suportado pelo Claude Desktop no Linux)*                                             | `%APPDATA%\Claude\claude_desktop_config.json`                                               |
-| **Cline**              | `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json` |
-| **Cline (CLI)**        | `~/.cline/data/settings/cline_mcp_settings.json`                                                                | `~/.cline/data/settings/cline_mcp_settings.json`                                            | `%USERPROFILE%\.cline\data\settings\cline_mcp_settings.json`                                |
-| **Codex**              | `~/.codex/config.toml`                                                                                          | `~/.codex/config.toml`                                                                      | `%USERPROFILE%\.codex\config.toml`                                                          |
-| **Continue**           | `~/.continue/config.json`                                                                                       | `~/.continue/config.json`                                                                   | `%USERPROFILE%\.continue\config.json`                                                       |
-| **Cursor**             | `~/.cursor/mcp.json`                                                                                            | `~/.cursor/mcp.json`                                                                        | `%USERPROFILE%\.cursor\mcp.json`                                                            |
-| **Gemini CLI**         | `~/.gemini/settings.json`                                                                                       | `~/.gemini/settings.json`                                                                   | `%USERPROFILE%\.gemini\settings.json`                                                       |
-| **GitHub Copilot CLI** | `~/.copilot/mcp-config.json`                                                                                    | `~/.copilot/mcp-config.json`                                                                | `%USERPROFILE%\.copilot\mcp-config.json`                                                    |
-| **Goose**              | `~/.config/goose/config.yaml`                                                                                   | `~/.config/goose/config.yaml`                                                               | `%APPDATA%\Block\goose\config\config.yaml`                                                  |
-| **Grok**               | `~/.grok/settings.json`                                                                                         | `~/.grok/settings.json`                                                                     | `%USERPROFILE%\.grok\settings.json`                                                         |
-| **Kilo Code**          | `~/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`           | `~/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`           | `%APPDATA%\Code\User\globalStorage\kilocode.kilo-code\settings\mcp_settings.json`           |
-| **Kiro**               | `~/.kiro/settings/mcp.json`                                                                                     | `~/.kiro/settings/mcp.json`                                                                 | `%USERPROFILE%\.kiro\settings\mcp.json`                                                     |
-| **LM Studio**          | `~/.lmstudio/mcp.json`                                                                                          | `~/.lmstudio/mcp.json`                                                                      | `%USERPROFILE%\.lmstudio\mcp.json`                                                          |
-| **OpenCode**           | `~/.config/opencode/opencode.json`                                                                              | `~/.config/opencode/opencode.json`                                                          | `%LOCALAPPDATA%\opencode\opencode.json`                                                     |
-| **Roo Code**           | `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`   | `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`   | `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`   |
-| **Trae**               | `~/Library/Application Support/Trae/User/mcp.json`                                                              | `~/.config/Trae/User/mcp.json`                                                              | `%APPDATA%\Trae\User\mcp.json`                                                              |
-| **Visual Studio Code** | `~/Library/Application Support/Code/User/mcp.json`                                                              | `~/.config/Code/User/mcp.json`                                                              | `%APPDATA%\Code\User\mcp.json`                                                              |
-| **Warp**               | `~/.warp/.mcp.json`                                                                                             | `~/.warp/.mcp.json`                                                                         | `%USERPROFILE%\.warp\.mcp.json`                                                             |
-| **Windsurf**           | `~/.codeium/windsurf/mcp_config.json`                                                                           | `~/.codeium/windsurf/mcp_config.json`                                                       | `%USERPROFILE%\.codeium\windsurf\mcp_config.json`                                           |
-| **Zed**                | `~/.config/zed/settings.json`                                                                                   | `~/.config/zed/settings.json`                                                               | `%APPDATA%\Zed\settings.json`                                                               |
-| **Zoo Code**           | `~/Library/Application Support/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\zoocodeorganization.zoo-code\settings\mcp_settings.json` |
+| Ferramenta | macOS | Linux | Windows |
+|---|---|---|---|
+| **Amazon Q**<br><img src="mcp_sync/assets/logos/readme/amazon-q.png" width="42" height="42"> | `~/.aws/amazonq/mcp.json` | `~/.aws/amazonq/mcp.json` | `%USERPROFILE%\.aws\amazonq\mcp.json` |
+| **Amp**<br><img src="mcp_sync/assets/logos/readme/amp.png" width="42" height="42"> | `~/.config/amp/settings.json` | `~/.config/amp/settings.json` | `%APPDATA%\amp\settings.json` |
+| **Antigravity**<br><img src="mcp_sync/assets/logos/readme/antigravity.png" width="42" height="42"> | `~/.gemini/config/mcp_config.json` | `~/.gemini/config/mcp_config.json` | `%USERPROFILE%\.gemini\config\mcp_config.json` |
+| **Claude Code**<br><img src="mcp_sync/assets/logos/readme/claude-code.png" width="42" height="42"> | `~/.claude.json` | `~/.claude.json` | `%USERPROFILE%\.claude.json` |
+| **Claude Desktop**<br><img src="mcp_sync/assets/logos/readme/claude-desktop.png" width="42" height="42"> | `~/Library/Application Support/Claude/claude_desktop_config.json` | *(não suportado pelo Claude Desktop no Linux)* | `%APPDATA%\Claude\claude_desktop_config.json` |
+| **Cline**<br><img src="mcp_sync/assets/logos/readme/cline.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json` |
+| **Cline (CLI)**<br><img src="mcp_sync/assets/logos/readme/cline-cli.png" width="42" height="42"> | `~/.cline/data/settings/cline_mcp_settings.json` | `~/.cline/data/settings/cline_mcp_settings.json` | `%USERPROFILE%\.cline\data\settings\cline_mcp_settings.json` |
+| **Codex**<br><img src="mcp_sync/assets/logos/readme/codex.png" width="42" height="42"> | `~/.codex/config.toml` | `~/.codex/config.toml` | `%USERPROFILE%\.codex\config.toml` |
+| **Continue**<br><img src="mcp_sync/assets/logos/readme/continue.png" width="42" height="42"> | `~/.continue/config.json` | `~/.continue/config.json` | `%USERPROFILE%\.continue\config.json` |
+| **Cursor**<br><img src="mcp_sync/assets/logos/readme/cursor.png" width="42" height="42"> | `~/.cursor/mcp.json` | `~/.cursor/mcp.json` | `%USERPROFILE%\.cursor\mcp.json` |
+| **Gemini CLI**<br><img src="mcp_sync/assets/logos/readme/gemini-cli.png" width="42" height="42"> | `~/.gemini/settings.json` | `~/.gemini/settings.json` | `%USERPROFILE%\.gemini\settings.json` |
+| **GitHub Copilot CLI**<br><img src="mcp_sync/assets/logos/readme/github-copilot-cli.png" width="42" height="42"> | `~/.copilot/mcp-config.json` | `~/.copilot/mcp-config.json` | `%USERPROFILE%\.copilot\mcp-config.json` |
+| **Goose**<br><img src="mcp_sync/assets/logos/readme/goose.png" width="42" height="42"> | `~/.config/goose/config.yaml` | `~/.config/goose/config.yaml` | `%APPDATA%\Block\goose\config\config.yaml` |
+| **Grok**<br><img src="mcp_sync/assets/logos/readme/grok.png" width="42" height="42"> | `~/.grok/settings.json` | `~/.grok/settings.json` | `%USERPROFILE%\.grok\settings.json` |
+| **Kilo Code**<br><img src="mcp_sync/assets/logos/readme/kilo-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\kilocode.kilo-code\settings\mcp_settings.json` |
+| **Kiro**<br><img src="mcp_sync/assets/logos/readme/kiro.png" width="42" height="42"> | `~/.kiro/settings/mcp.json` | `~/.kiro/settings/mcp.json` | `%USERPROFILE%\.kiro\settings\mcp.json` |
+| **LM Studio**<br><img src="mcp_sync/assets/logos/readme/lm-studio.png" width="42" height="42"> | `~/.lmstudio/mcp.json` | `~/.lmstudio/mcp.json` | `%USERPROFILE%\.lmstudio\mcp.json` |
+| **OpenCode**<br><img src="mcp_sync/assets/logos/readme/opencode.png" width="42" height="42"> | `~/.config/opencode/opencode.json` | `~/.config/opencode/opencode.json` | `%LOCALAPPDATA%\opencode\opencode.json` |
+| **Roo Code**<br><img src="mcp_sync/assets/logos/readme/roo-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json` |
+| **Trae**<br><img src="mcp_sync/assets/logos/readme/trae.png" width="42" height="42"> | `~/Library/Application Support/Trae/User/mcp.json` | `~/.config/Trae/User/mcp.json` | `%APPDATA%\Trae\User\mcp.json` |
+| **Visual Studio Code**<br><img src="mcp_sync/assets/logos/readme/visual-studio-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/mcp.json` | `~/.config/Code/User/mcp.json` | `%APPDATA%\Code\User\mcp.json` |
+| **Warp**<br><img src="mcp_sync/assets/logos/readme/warp.png" width="42" height="42"> | `~/.warp/.mcp.json` | `~/.warp/.mcp.json` | `%USERPROFILE%\.warp\.mcp.json` |
+| **Windsurf**<br><img src="mcp_sync/assets/logos/readme/windsurf.png" width="42" height="42"> | `~/.codeium/windsurf/mcp_config.json` | `~/.codeium/windsurf/mcp_config.json` | `%USERPROFILE%\.codeium\windsurf\mcp_config.json` |
+| **Zed**<br><img src="mcp_sync/assets/logos/readme/zed.png" width="42" height="42"> | `~/.config/zed/settings.json` | `~/.config/zed/settings.json` | `%APPDATA%\Zed\settings.json` |
+| **Zoo Code**<br><img src="mcp_sync/assets/logos/readme/zoo-code.png" width="42" height="42"> | `~/Library/Application Support/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `~/.config/Code/User/globalStorage/zoocodeorganization.zoo-code/settings/mcp_settings.json` | `%APPDATA%\Code\User\globalStorage\zoocodeorganization.zoo-code\settings\mcp_settings.json` |
 
 > **Nota:** o Firebase Studio não está incluído — a configuração MCP dele
 > (`.idx/mcp.json`) é estritamente por projeto, sem um arquivo global/por
@@ -310,21 +318,95 @@ Fluxo correto para cada release futuro:
 
 ## Perguntas frequentes
 
-**O app modifica algo além da lista de servidores MCP?**
+<details>
+<summary>O app modifica algo além da lista de servidores MCP?</summary>
+
 Não. Ele só toca na chave específica de servidores MCP de cada arquivo
 (`mcpServers`, `servers`, `mcp_servers`, `context_servers` ou `mcp`,
 dependendo da ferramenta) e preserva todo o resto do arquivo.
+</details>
 
-**Preciso configurar os caminhos dos arquivos manualmente?**
+<details>
+<summary>Preciso configurar os caminhos dos arquivos manualmente?</summary>
+
 Não. O app varre automaticamente o sistema procurando por todas as ferramentas
 suportadas e só mostra no menu as que encontrar instaladas.
+</details>
 
-**E se eu não quiser sincronizar uma ferramenta específica?**
+<details>
+<summary>E se eu não quiser sincronizar uma ferramenta específica?</summary>
+
 Desligue o interruptor dela. Ela deixa de ser lida e escrita até você ligar de
 novo — o arquivo dela fica exatamente como estava na última sincronização.
+</details>
 
-**Funciona sem internet?**
+<details>
+<summary>Funciona sem internet?</summary>
+
 Sim, o app não faz nenhuma chamada de rede — é 100% local.
+</details>
+
+<details>
+<summary>Como eu restauro um arquivo a partir de um backup?</summary>
+
+Encontre a sincronização que você quer em
+`~/.mcp-sync/backups/<data>_<hora>/<nome da ferramenta>/` e copie aquele
+arquivo de volta para o caminho real de configuração da ferramenta (mostrado
+no app ao lado de cada ferramenta, ou na
+[tabela abaixo](#ferramentas-suportadas-e-caminhos-de-configuração)). Não há
+um botão de restaurar na interface de propósito — copiar o arquivo de volta é
+um passo único e explícito, totalmente sob seu controle. Veja
+[Backups](#backups) para saber onde eles ficam e quando são criados.
+</details>
+
+<details>
+<summary>O que acontece se o mesmo nome de servidor existir em duas ferramentas com configurações diferentes?</summary>
+
+Vence a versão do arquivo que foi **modificado mais recentemente**, e essa
+versão é escrita em todas as outras ferramentas — as duas não são mescladas
+campo a campo. Se não era isso que você queria, edite o servidor na
+ferramenta que deve ser a "fonte da verdade" e deixe sincronizar de novo.
+</details>
+
+<details>
+<summary>Desinstalar o app apaga as configurações dos meus servidores MCP?</summary>
+
+Não. O desinstalador só remove o próprio MCP Sync (seu venv, seu item de
+inicialização, seu atalho `.app` no macOS) — ele nunca toca no arquivo de
+configuração de nenhuma ferramenta de IA. Seu `~/.mcp-sync/settings.json` e
+`~/.mcp-sync/backups/` também são mantidos, caso você reinstale depois.
+</details>
+
+<details>
+<summary>Posso sincronizar servidores MCP entre vários computadores?</summary>
+
+Não diretamente — o MCP Sync só reconcilia as ferramentas instaladas *na
+máquina onde ele está rodando*, e nunca faz nenhuma chamada de rede. Se você
+quer os mesmos servidores em outra máquina, precisa sincronizar o conjunto de
+ferramentas daquela máquina separadamente (ou copiar o arquivo de
+configuração de uma ferramenta para lá e deixar o MCP Sync propagar a partir
+dele).
+</details>
+
+<details>
+<summary>Por que uma ferramenta que eu tenho instalada aparece como "não instalada"?</summary>
+
+O MCP Sync exige prova real — o binário de linha de comando no `PATH`, o
+pacote `.app`/`.exe`, uma extensão do VS Code de fato presente, ou (para a
+maioria das ferramentas) o arquivo de configuração já existindo. Se você
+acabou de instalar a ferramenta e ainda não abriu ela, o arquivo de
+configuração pode ainda não existir; abra a ferramenta uma vez e depois
+clique em "Sync Now".
+</details>
+
+<details>
+<summary>Como eu impeço o app de iniciar no login?</summary>
+
+Desligue "Start at Login" no menu da bandeja / painel — isso liga/desliga o
+item de inicialização automática do sistema operacional (um LaunchAgent no
+macOS, um arquivo `.desktop` no Linux, ou uma chave de registro `Run` no
+Windows) sem desinstalar nada.
+</details>
 
 ## Referência de funções
 
@@ -336,12 +418,20 @@ ler o código-fonte sem precisar rastrear cada linha.
 | Função                                   | O que faz                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `merge_servers`                          | Pega as listas de servidores de todas as ferramentas habilitadas/detectadas e junta em um único conjunto. Exemplo: o Cursor tem`mcp1, mcp2`, o VS Code tem `mcp3, mcp4`, o Codex tem `mcp5` → o resultado combinado é `{mcp1, mcp2, mcp3, mcp4, mcp5}`. Se o *mesmo nome de servidor* existir em mais de uma ferramenta com configurações diferentes, vence a versão do arquivo que foi **modificado mais recentemente** — a outra é descartada, e não mesclada campo a campo. Ele também recompõe um `type` faltando em servidores remotos a partir da cópia de outra ferramenta, para que um arquivo alterado por motivos alheios (por exemplo, o Claude Code atualizando as próprias estatísticas de uso) não corrompa em silêncio o registro de um servidor remoto. |
-| `run_sync`                               | A função que de fato "faz a sincronização". Lê todas as ferramentas, chama`merge_servers`, remove qualquer servidor que tenha sido deliberadamente apagado do arquivo que acabou de mudar (para ele não voltar a partir da cópia de outra ferramenta), escreve o conjunto combinado em toda ferramenta cujo arquivo esteja diferente, e registra o horário da última sincronização.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `run_sync`                               | A função que de fato "faz a sincronização". Lê todas as ferramentas, chama`merge_servers`, remove qualquer servidor que tenha sido deliberadamente apagado do arquivo que acabou de mudar (para ele não voltar a partir da cópia de outra ferramenta), escreve o conjunto combinado em toda ferramenta cujo arquivo esteja diferente, e registra o horário da última sincronização. Quando chamada com `backup=True` (sincronização de inicialização, "Sync Now"), ela salva um backup de cada arquivo via `backup.py` antes de sobrescrevê-lo.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `build_statuses`                         | Monta a lista mostrada na interface: para cada ferramenta conhecida, se ela está instalada, habilitada, sincronizada e quantos servidores tem.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `_enabled_detected_tools`                | Filtra a lista completa de ferramentas conhecidas, deixando só as que o usuário não desabilitou*e* que estão realmente instaladas na máquina.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `_safe_read`                             | Lê a lista de servidores de uma ferramenta; se o arquivo estiver faltando ou corrompido, devolve "nenhum servidor" em vez de derrubar o app.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `watched_paths` / `all_registry_paths` | Listam quais caminhos de configuração o monitor de arquivos deve vigiar — o primeiro só para ferramentas instaladas no momento, o segundo para*todas* as conhecidas (assim uma ferramenta recém-instalada é detectada automaticamente).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `seconds_since_last_sync`                | Há quanto tempo a última sincronização terminou — usado para ignorar a escrita do próprio app como um falso evento de "arquivo alterado".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+### `backup.py` — salvando um backup antes de sobrescrever um arquivo
+
+| Função | O que faz |
+|---|---|
+| `backup_file` | Copia o arquivo de configuração de uma ferramenta para `~/.mcp-sync/backups/<run_id>/<nome da ferramenta>/` antes de `run_sync` sobrescrevê-lo. Não faz nada se o arquivo ainda não existir. |
+| `make_run_id` | Monta o nome de pasta legível e com timestamp (por exemplo, `2026-09-08_22-43-09`) compartilhado por todos os arquivos salvos na mesma sincronização. |
+| `prune_old_backups` | Apaga todas as pastas de backup exceto as 30 mais recentes, para a pasta não crescer para sempre. |
 
 ### `tools_registry.py` — um "tradutor" por ferramenta
 
