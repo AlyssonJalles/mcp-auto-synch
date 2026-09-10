@@ -10,19 +10,33 @@ import pystray
 
 from . import autostart, settings, sync_engine
 from .notifier import notify
-from .tray_icon import build_icon
+from .platform_utils import IS_MAC
+from .tray_icon import build_icon, build_tray_icon
 from .watcher import Watcher
 
 APP_NAME = "MCP"
 PERIODIC_SYNC_SECONDS = 60
+SELF_WRITE_SUPPRESS_SECONDS = 3.0
 GREEN_DOT = "\U0001F7E2"  # 🟢
 GRAY_DOT = "\u26AA"  # ⚪
 OFF_DOT = "\u2B1B"  # ⬛
 
 
+def _fallback_tray_icon(active: bool = False):
+    """Icon for this pystray fallback UI, picked per platform.
+
+    macOS's menu bar renders build_icon()'s flat-black artwork as a template
+    image (auto-inverting for light/dark menu bars), so it stays correct
+    there; the white-filled, black-outlined build_tray_icon() exists
+    precisely for the platforms that *don't* do that. Using the
+    Linux/Windows one on macOS would put a hand-outlined icon in a menu bar
+    that was going to recolor the plain one properly anyway."""
+    return build_icon(active=active) if IS_MAC else build_tray_icon(active=active)
+
+
 class MCPSyncApp:
     def __init__(self) -> None:
-        self._icon = pystray.Icon(APP_NAME, build_icon(False), APP_NAME, menu=self._build_menu())
+        self._icon = pystray.Icon(APP_NAME, _fallback_tray_icon(False), "MCP Sync", menu=self._build_menu())
         self._watcher = Watcher(on_change=self._on_files_changed)
         self._stop = threading.Event()
         self._busy_until = 0.0
@@ -43,15 +57,23 @@ class MCPSyncApp:
             if not self._stop.is_set():
                 self.sync_now(notify_result=False)
 
-    def _on_files_changed(self) -> None:
-        self.sync_now(notify_result=True)
+    def _on_files_changed(self, changed_paths: list[str]) -> None:
+        if sync_engine.seconds_since_last_sync() < SELF_WRITE_SUPPRESS_SECONDS:
+            return  # our own write just triggered this event, not a real external change
+        self.sync_now(notify_result=True, changed_paths=changed_paths)
 
     # ----------------------------------------------------------------- sync
 
-    def sync_now(self, notify_result: bool = True, always_notify: bool = False, backup: bool = False) -> None:
+    def sync_now(
+        self,
+        notify_result: bool = True,
+        always_notify: bool = False,
+        backup: bool = False,
+        changed_paths: list[str] | None = None,
+    ) -> None:
         self._set_busy(True)
         try:
-            result = sync_engine.run_sync(backup=backup)
+            result = sync_engine.run_sync(changed_paths=changed_paths, backup=backup)
         finally:
             self._set_busy(False)
         self._refresh_menu()
@@ -64,7 +86,7 @@ class MCPSyncApp:
 
     def _set_busy(self, busy: bool) -> None:
         try:
-            self._icon.icon = build_icon(active=busy)
+            self._icon.icon = _fallback_tray_icon(active=busy)
         except Exception:
             pass
 
@@ -144,9 +166,12 @@ class MCPSyncApp:
 
 def main() -> None:
     """On macOS, prefer the native AppKit popover (stays open while you
-    toggle a tool and looks like a real app, not a plain OS menu). Falls
-    back to the cross-platform pystray tray icon everywhere else, or if
-    PyObjC isn't installed."""
+    toggle a tool and looks like a real app, not a plain OS menu); on Linux,
+    prefer the AppIndicator tray icon plus a real GTK popover window (same
+    provider list/search/switches - see linux_ui.py for why the indicator's
+    own menu can't carry them). Falls back to the cross-platform pystray
+    tray icon everywhere else, or if the platform-native UI's dependencies
+    aren't installed."""
     try:
         import setproctitle
 
@@ -156,7 +181,17 @@ def main() -> None:
     except ImportError:
         pass
 
-    from .platform_utils import IS_MAC
+    from . import single_instance
+    from .platform_utils import IS_LINUX, IS_MAC
+
+    # Every launcher click (app grid, .desktop entry, autostart firing while
+    # the app is already up) runs this same entry point, and each process
+    # would add its own tray icon. Only the first one continues; the rest ask
+    # it to show itself and exit.
+    instance = single_instance.acquire()
+    if instance is None:
+        return
+    instance.start_activation_listener()
 
     if IS_MAC:
         try:
@@ -165,6 +200,23 @@ def main() -> None:
             MacPopoverApp().run()
             return
         except ImportError:
+            pass
+    elif IS_LINUX:
+        try:
+            from . import autostart
+
+            # Makes the app show up as a clickable icon in GNOME's
+            # Activities/app-grid search - independent of the "Start at
+            # Login" setting, and cheap enough to self-heal on every start.
+            autostart.ensure_application_launcher()
+        except Exception:
+            pass
+        try:
+            from .linux_ui import LinuxIndicatorApp
+
+            LinuxIndicatorApp(instance=instance).run()
+            return
+        except (ImportError, ValueError):
             pass
     MCPSyncApp().run()
 

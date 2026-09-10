@@ -50,7 +50,38 @@ def _enabled_detected_tools() -> List[ToolSpec]:
     return [t for t in REGISTRY.values() if t.name not in disabled and t.is_present()]
 
 
+def _normalize_server(cfg: dict) -> dict:
+    """A server config with the canonical shape's optional keys filled in
+    with their defaults, so two spellings of the same server compare equal.
+
+    Some adapters always emit "args"/"env" (Zed nests them under a required
+    "command" object, so reading one back always produces them) while
+    pass-through adapters return only what the file actually had. Comparing
+    those two spellings directly makes a server permanently differ from
+    itself, so every pass would call the tool out of sync and rewrite +
+    notify for it forever.
+
+    This is used ONLY for comparison - see _comparable. The values written
+    to disk keep whatever shape they already had, so syncing never injects
+    empty "args"/"env"/"headers" keys into a user's config files."""
+    cfg = dict(cfg)
+    if "url" in cfg:
+        cfg.setdefault("headers", {})
+    else:
+        cfg.setdefault("args", [])
+        cfg.setdefault("env", {})
+    return cfg
+
+
+def _comparable(servers: ServerMap) -> ServerMap:
+    """The normalized view of a server map, for equality checks only."""
+    return {name: _normalize_server(cfg) for name, cfg in servers.items()}
+
+
 def _safe_read(tool: ToolSpec) -> ServerMap:
+    """The tool's servers exactly as its adapter reports them - deliberately
+    NOT normalized, so what gets merged and written back preserves the
+    original files' shape."""
     try:
         return tool.adapter.read(tool.resolved_path())
     except Exception:
@@ -76,6 +107,17 @@ def merge_servers(tools: List[ToolSpec]) -> Dict[str, dict]:
                 best_mtime[name] = mtime
 
     return best
+
+
+def _representable(tool: ToolSpec, merged: Dict[str, dict]) -> Dict[str, dict]:
+    """The subset of `merged` this tool's format can actually store (see
+    Adapter.supports) - what "in sync" means for a tool whose format can't
+    represent every kind of server (e.g. Zed only supports local stdio
+    commands, not remote/http ones). Comparing against the full `merged`
+    for such a tool would never match, so it would look permanently out of
+    sync and get rewritten (and reported as "synced") on every pass even
+    though there's nothing more it could ever do."""
+    return {name: cfg for name, cfg in merged.items() if tool.adapter.supports(cfg)}
 
 
 def run_sync(changed_paths: Optional[List[str]] = None, backup: bool = False) -> SyncResult:
@@ -108,7 +150,13 @@ def run_sync(changed_paths: Optional[List[str]] = None, backup: bool = False) ->
             run_id = backup_mod.make_run_id() if backup else None
             for tool in tools:
                 current = _safe_read(tool)
-                if current != merged:
+                target = _representable(tool, merged)
+                # Compare normalized, write `target` as-is: an equal-but
+                # differently-spelled config must not count as a change (see
+                # _normalize_server), and a config that genuinely does need
+                # writing goes in with the winning file's own shape rather
+                # than a normalized one.
+                if _comparable(current) != _comparable(target):
                     if run_id is not None:
                         try:
                             # Safety principle: a write must never happen
@@ -121,7 +169,14 @@ def run_sync(changed_paths: Optional[List[str]] = None, backup: bool = False) ->
                             result.error = f"backup {tool.name}: {exc}"
                             continue
                     try:
-                        tool.adapter.write(tool.resolved_path(), merged)
+                        # `target`, not `merged`: writing exactly what the
+                        # comparison above tested against is what guarantees
+                        # the next pass sees this tool as in sync. (Handing
+                        # the adapter the full set happens to work today only
+                        # because a lossy adapter drops what it can't store
+                        # on the way out - that's the adapter repeating the
+                        # supports() filter, not a property to rely on.)
+                        tool.adapter.write(tool.resolved_path(), target)
                         result.changed_tools.append(tool.name)
                         # Mark "last write" the instant it happens, not after
                         # the whole pass finishes - the watcher's debounced
@@ -137,20 +192,19 @@ def run_sync(changed_paths: Optional[List[str]] = None, backup: bool = False) ->
             if result.changed_tools:
                 if run_id is not None:
                     backup_mod.prune_old_backups()
-                data = settings.load()
                 import datetime
 
-                data["last_sync_iso"] = datetime.datetime.now().isoformat(timespec="seconds")
-                settings.save(data)
+                stamp = datetime.datetime.now().isoformat(timespec="seconds")
+                # settings.update (not load/save) so this doesn't clobber a
+                # tool's on/off switch the user flipped mid-pass - see the
+                # lost-update note in settings.update's docstring.
+                settings.update(lambda data: data.__setitem__("last_sync_iso", stamp))
 
             result.statuses = build_statuses(merged)
             _known_servers.clear()
             _known_servers.update({tool.name: set(_safe_read(tool)) for tool in tools})
-            data = settings.load()
-            data["known_servers_by_tool"] = {
-                name: sorted(names) for name, names in _known_servers.items()
-            }
-            settings.save(data)
+            known = {name: sorted(names) for name, names in _known_servers.items()}
+            settings.update(lambda data: data.__setitem__("known_servers_by_tool", known))
         except Exception as exc:
             result.error = str(exc)
         finally:
@@ -169,7 +223,7 @@ def build_statuses(merged: Optional[Dict[str, dict]] = None) -> List[ToolStatus]
         installed = tool.is_present()
         enabled = tool.name not in disabled
         current = _safe_read(tool) if installed else {}
-        in_sync = installed and enabled and current == merged
+        in_sync = installed and enabled and _comparable(current) == _comparable(_representable(tool, merged))
         statuses.append(
             ToolStatus(
                 name=tool.name,

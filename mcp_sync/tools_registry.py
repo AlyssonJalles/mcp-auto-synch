@@ -111,6 +111,16 @@ def _write_toml(path: str, data: dict) -> None:
 class Adapter:
     read: Callable[[str], ServerMap]
     write: Callable[[str, ServerMap], None]
+    # Whether this tool's format can represent a given canonical server cfg
+    # at all - e.g. Zed's context_servers can only hold local stdio
+    # commands, so a remote/http server can never round-trip through it.
+    # Defaults to "everything" for the pass-through adapters. sync_engine
+    # uses this to decide what "in sync" means for a lossy tool: comparing
+    # against the *representable* subset of the merged set, not the full
+    # set, so a server the tool structurally can't store doesn't make it
+    # look permanently out of sync (and get rewritten - and reported as
+    # "synced" - on every single pass).
+    supports: Callable[[dict], bool] = lambda cfg: True
 
 
 def _generic_mcp_servers_key_adapter(key: str = "mcpServers", loader=_read_json, dumper=_write_json) -> Adapter:
@@ -311,7 +321,7 @@ def _zed_adapter() -> Adapter:
         data["context_servers"] = out
         _write_json(path, data)
 
-    return Adapter(read=read, write=write)
+    return Adapter(read=read, write=write, supports=lambda cfg: "command" in cfg)
 
 
 def _opencode_adapter() -> Adapter:
