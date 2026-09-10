@@ -141,8 +141,11 @@ costume.
    nunca dispara notificações falsas de "arquivo modificado" em outro lugar nem
    sobrecarrega o disco com escritas desnecessárias.
 
-Nada é enviado pela rede — o app só lê e escreve arquivos locais que já existem
-na sua máquina.
+Nada relacionado à sincronização em si é enviado pela rede — o app só lê e
+escreve arquivos locais que já existem na sua máquina. A única chamada de
+rede que o app faz é a checagem periódica e opcional de atualizações no
+GitHub Releases (veja [Atualização automática](#atualização-automática));
+ela nunca envia nenhum dos seus dados de servidores MCP para lugar nenhum.
 
 ## Backups
 
@@ -168,6 +171,24 @@ arquivo tocado pela mesma sincronização que dispara backup fica na mesma pasta
 com timestamp, então sempre dá para saber o que foi sobrescrito junto. Só as
 30 pastas de backup mais recentes são mantidas — as mais antigas são apagadas
 automaticamente.
+
+## Atualização automática
+
+O MCP Sync checa periodicamente o GitHub Releases deste repositório em busca
+de uma versão mais nova — na inicialização, depois a cada 24 horas, e também
+quando você clica em "Check for Updates" no menu da bandeja / painel. Essa
+checagem é a única coisa que passa pela rede: um único `GET` na API pública
+de Releases do GitHub, sem nada sobre seus servidores ou configurações MCP.
+
+Encontrar uma versão nova nunca instala nada sozinho — aparece uma
+notificação e um item "Update Now" no menu. Baixar, instalar e reiniciar só
+acontecem quando você clica nele. Você também pode:
+
+- **Skip This Version** — ignora só aquele release; você será avisado de
+  novo quando uma versão mais nova sair.
+- **Desligar "Auto-update"** — desativa a checagem periódica/na
+  inicialização por completo. "Check for Updates" continua funcionando
+  manualmente mesmo desligado.
 
 ## Ferramentas suportadas e caminhos de configuração
 
@@ -313,7 +334,12 @@ wheel usando o que estiver em `version` no `pyproject.toml` naquele momento e
 publica como um Release no GitHub — ele não incrementa a versão sozinho.
 Fluxo correto para cada release futuro:
 
-1. Edite `version = "0.0.2"` no `pyproject.toml` (commit normal).
+1. Edite `version = "0.0.2"` no `pyproject.toml`, e atualize
+   `_FALLBACK_VERSION` em [`mcp_sync/__init__.py`](mcp_sync/__init__.py) para
+   o mesmo valor (commit normal). O fallback não é o que uma instalação
+   normal reporta em tempo de execução — isso vem do metadata do pacote
+   instalado — mas manter esse valor atualizado evita que ele fique
+   desatualizado no caso raro de a leitura do metadata falhar.
 2. `git tag v0.0.2 && git push origin v0.0.2`.
 
 ## Perguntas frequentes
@@ -343,7 +369,10 @@ novo — o arquivo dela fica exatamente como estava na última sincronização.
 <details>
 <summary>Funciona sem internet?</summary>
 
-Sim, o app não faz nenhuma chamada de rede — é 100% local.
+A sincronização em si, sim — é 100% local. A única exceção é a checagem
+opcional de atualizações no GitHub Releases (veja
+[Atualização automática](#atualização-automática)), que pode ser desligada;
+a sincronização continua funcionando offline de qualquer forma.
 </details>
 
 <details>
@@ -381,7 +410,8 @@ configuração de nenhuma ferramenta de IA. Seu `~/.mcp-sync/settings.json` e
 <summary>Posso sincronizar servidores MCP entre vários computadores?</summary>
 
 Não diretamente — o MCP Sync só reconcilia as ferramentas instaladas *na
-máquina onde ele está rodando*, e nunca faz nenhuma chamada de rede. Se você
+máquina onde ele está rodando*, e a sincronização em si nunca faz nenhuma
+chamada de rede. Se você
 quer os mesmos servidores em outra máquina, precisa sincronizar o conjunto de
 ferramentas daquela máquina separadamente (ou copiar o arquivo de
 configuração de uma ferramenta para lá e deixar o MCP Sync propagar a partir

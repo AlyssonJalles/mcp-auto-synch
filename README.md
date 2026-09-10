@@ -136,8 +136,11 @@ it's the standard tray menu, which closes after each click as usual.
    this never triggers false "file modified" notifications elsewhere and
    never spams your disk with writes.
 
-Nothing is ever sent over the network — this only reads/writes local files
-already on your machine.
+Nothing about the sync itself is ever sent over the network — this only
+reads/writes local files already on your machine. The only network call the
+app makes at all is an optional, periodic check against GitHub Releases for
+a newer version (see [Auto-update](#auto-update)); it never sends any of
+your MCP server data anywhere.
 
 ## Backups
 
@@ -162,6 +165,23 @@ e.g. `~/.mcp-sync/backups/2026-09-08_22-43-09/Cursor/mcp.json`. Every file
 touched by the same backup-triggering sync shares one timestamped folder,
 so you can always tell what was overwritten together. Only the 30 most
 recent backup folders are kept — older ones are pruned automatically.
+
+## Auto-update
+
+MCP Sync periodically checks GitHub Releases for this repo for a newer
+version — on startup, and then once every 24 hours, plus whenever you click
+"Check for Updates" in the tray menu / popover. That check is the only thing
+that ever goes over the network: one `GET` against the public GitHub
+Releases API, nothing about your MCP servers or configs.
+
+Finding a newer version never installs it automatically — it shows a
+notification and adds an "Update Now" item to the menu. Downloading,
+installing, and restarting only happen when you click it. You can also:
+
+- **Skip This Version** — dismiss just that release; you'll be reminded
+  again once a newer one ships.
+- **Turn off "Auto-update"** — disables the periodic/startup check entirely.
+  "Check for Updates" still works manually even with it off.
 
 ## Supported tools and config paths
 
@@ -301,7 +321,12 @@ which builds the wheel from whatever `version` is set in `pyproject.toml` at
 that moment and publishes it as a GitHub Release — it does not bump the
 version for you. Correct flow for every future release:
 
-1. Edit `version = "0.0.2"` in `pyproject.toml` (regular commit).
+1. Edit `version = "0.0.2"` in `pyproject.toml`, and bump
+   `_FALLBACK_VERSION` in [`mcp_sync/__init__.py`](mcp_sync/__init__.py) to
+   match (regular commit). The fallback isn't what a normal install actually
+   reports at runtime — that comes from the installed package's own
+   metadata — but keeping it current avoids it ever being stale in the rare
+   case metadata lookup fails.
 2. `git tag v0.0.2 && git push origin v0.0.2`.
 
 ## FAQ
@@ -334,7 +359,9 @@ back on — its file stays exactly as it was at the last sync.
 <details>
 <summary>Does it work offline?</summary>
 
-Yes, the app makes no network calls at all — it's 100% local.
+Syncing itself, yes — it's 100% local. The one exception is the optional
+auto-update check against GitHub Releases (see [Auto-update](#auto-update)),
+which you can turn off; sync keeps working offline either way.
 
 </details>
 
@@ -374,7 +401,7 @@ place, in case you reinstall later.
 <summary>Can I sync MCP servers across multiple computers?</summary>
 
 Not directly — MCP Sync only reconciles the tools installed *on the machine
-it's running on*, and it never makes a network call. If you want the same
+it's running on*, and syncing itself never makes a network call. If you want the same
 servers on another machine, you'd sync that machine's own set of tools
 separately (or copy one tool's config file over and let MCP Sync propagate
 it from there).

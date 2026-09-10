@@ -19,6 +19,9 @@ _DEFAULTS: Dict[str, Any] = {
     "last_sync_iso": None,
     "hide_not_installed": True,
     "known_servers_by_tool": {},
+    "auto_update_enabled": True,
+    "last_update_check_iso": None,
+    "skipped_version": None,
 }
 
 
@@ -100,3 +103,27 @@ def set_start_at_login(enabled: bool) -> None:
 
 def set_hide_not_installed(hidden: bool) -> None:
     update(lambda data: data.__setitem__("hide_not_installed", hidden))
+
+
+def is_auto_update_enabled() -> bool:
+    return bool(load().get("auto_update_enabled", True))
+
+
+def set_auto_update_enabled(enabled: bool) -> None:
+    update(lambda data: data.__setitem__("auto_update_enabled", enabled))
+
+
+def get_last_update_check_iso() -> str | None:
+    return load().get("last_update_check_iso")
+
+
+def set_last_update_check_iso(iso: str) -> None:
+    update(lambda data: data.__setitem__("last_update_check_iso", iso))
+
+
+def get_skipped_version() -> str | None:
+    return load().get("skipped_version")
+
+
+def set_skipped_version(version: str | None) -> None:
+    update(lambda data: data.__setitem__("skipped_version", version))
