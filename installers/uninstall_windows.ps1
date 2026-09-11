@@ -5,7 +5,7 @@ $VenvDir = Join-Path $env:USERPROFILE ".mcp-sync\venv"
 
 Write-Host "[+] Stopping MCP Sync..."
 if (Test-Path "$VenvDir\Scripts\python.exe") {
-    & "$VenvDir\Scripts\python.exe" -c "from mcp_sync import autostart; autostart.disable()"
+    & "$VenvDir\Scripts\python.exe" -I -c "from mcp_sync import autostart; autostart.disable()"
 }
 Get-Process pythonw, "MCP Sync" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq "" } | Stop-Process -Force -ErrorAction SilentlyContinue
 

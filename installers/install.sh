@@ -64,7 +64,9 @@ fi
 echo "[+] Registering login item and starting the app..."
 # launchctl load -w with RunAtLoad already starts the app on macOS - do not
 # launch it a second time here, or you'll end up with two tray icons/processes.
-"$VENV_DIR/bin/python3" - <<PYEOF
+# -I (isolated mode) keeps the current directory off sys.path, so running this
+# from inside a clone can't shadow the just-installed package.
+"$VENV_DIR/bin/python3" -I - <<PYEOF
 from mcp_sync import autostart
 autostart.enable()
 PYEOF

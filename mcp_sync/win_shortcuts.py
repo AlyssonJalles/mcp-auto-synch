@@ -79,16 +79,18 @@ def setup_start_menu(ico_path: str | None = None) -> None:
 def setup_prog_files(ico_path: str | None = None) -> None:
     """Create C:\\Program Files (x86)\\MCP Synch\\MCP Synch.lnk (needs admin)."""
     ico = ico_path or generate_ico()
+    lnk = os.path.join(_PROG_FILES_DIR, f"{_APP_NAME}.lnk")
+    # The folder may already exist (e.g. from an earlier elevated install), in
+    # which case makedirs succeeds and it's writing the .lnk that is denied.
     try:
         os.makedirs(_PROG_FILES_DIR, exist_ok=True)
-    except PermissionError:
+        _create_lnk(lnk, ico)
+    except (PermissionError, subprocess.CalledProcessError):
         print(
             f"[!] Skipping {_PROG_FILES_DIR} — needs Administrator rights.\n"
             "    Re-run the installer from an elevated PowerShell to enable."
         )
         return
-    lnk = os.path.join(_PROG_FILES_DIR, f"{_APP_NAME}.lnk")
-    _create_lnk(lnk, ico)
     print(f"[+] Program Files shortcut: {lnk}")
 
 
