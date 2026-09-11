@@ -7,10 +7,10 @@
 
 A tiny, always-on **menu bar / system tray app** that keeps your **MCP
 (Model Context Protocol) server configuration** in sync across every AI
-coding tool installed on your machine — Codex, Claude Code, Cursor, Gemini
-CLI, GitHub Copilot CLI, VS Code, OpenCode, Windsurf, Antigravity, Zed,
-Continue, Roo Code, Claude Desktop, Cline, Kilo Code, Zoo Code, Amp, Kiro,
-Amazon Q, Goose, Warp, Trae, LM Studio and Grok.
+coding tool installed on your machine — VS Code, Cursor, Claude Code, Claude
+Desktop, GitHub Copilot CLI, Codex, Gemini CLI, Windsurf, Cline, Continue,
+Roo Code, OpenCode, Amazon Q, Warp, Zed, Amp, Kiro, Goose, Trae, Antigravity,
+LM Studio, Kilo Code, Zoo Code and Grok.
 
 Runs on **macOS (Apple Silicon and Intel), Ubuntu/Linux, and Windows**.
 
@@ -29,6 +29,8 @@ Runs on **macOS (Apple Silicon and Intel), Ubuntu/Linux, and Windows**.
 </table>
 
 ## Install
+
+![status](mcp_sync/assets/easy-to-install-en.jpg)
 
 ### macOS / Linux — install directly from GitHub (no clone needed)
 
