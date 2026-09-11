@@ -59,6 +59,7 @@ STARTUP_UPDATE_CHECK_DELAY_SECONDS = 30
 FLASH_ICON_SECONDS = 0.6
 DOCS_URL = "https://github.com/AlyssonJalles/mcp-auto-synch"
 ROW_LOGO_SIZE = 28
+APP_LOGO_WIDTH = 66
 ROW_HEIGHT = 48  # approx height of one ToolRow, for sizing the scroll area
 POPOVER_WIDTH = 340
 POPOVER_MAX_LIST_HEIGHT = 420
@@ -79,6 +80,17 @@ def _pil_to_pixbuf(img) -> GdkPixbuf.Pixbuf:
 
 def _dot_pixbuf(color_name: str) -> GdkPixbuf.Pixbuf:
     return _pil_to_pixbuf(build_status_dot(color_name))
+
+
+def _app_logo_pixbuf() -> GdkPixbuf.Pixbuf | None:
+    """Load the application wordmark at its natural aspect ratio."""
+    try:
+        path = os.path.join(os.path.dirname(__file__), "assets", "logos", "_mcp_synch.png")
+        original = GdkPixbuf.Pixbuf.new_from_file(path)
+        height = max(1, round(APP_LOGO_WIDTH * original.get_height() / original.get_width()))
+        return original.scale_simple(APP_LOGO_WIDTH, height, GdkPixbuf.InterpType.BILINEAR)
+    except Exception:
+        return None
 
 
 class ToolRow:
@@ -243,6 +255,7 @@ class LinuxIndicatorApp:
         self._popover_focused = False
         self._pending_update: updater.UpdateInfo | None = None
         self._settings_expanded = False
+        self._app_logo = _app_logo_pixbuf()
 
         self._indicator = AppIndicator.Indicator.new(
             "mcp-sync", "", AppIndicator.IndicatorCategory.APPLICATION_STATUS
@@ -322,6 +335,12 @@ class LinuxIndicatorApp:
         .mcp-sync-popover { border: 1px solid alpha(#888888, 0.35); }
         .mcp-sync-popover separator { margin: 6px 0; }
         .mcp-sync-subtitle { font-size: 90%; }
+        .mcp-sync-update-banner {
+            border: 1px solid alpha(#3584e4, 0.55);
+            border-radius: 6px;
+            padding: 8px;
+        }
+        .mcp-sync-update-label { font-weight: bold; }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
@@ -573,21 +592,28 @@ class LinuxIndicatorApp:
         root.set_hexpand(True)
         window.add(root)
 
-        header_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         header_box.set_margin_start(MARGIN)
         header_box.set_margin_end(MARGIN)
         header_box.set_margin_top(12)
         header_box.set_margin_bottom(6)
+        header_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        header_text.set_hexpand(True)
         title_label = Gtk.Label(xalign=0)
         title_label.set_markup('<span size="large" weight="bold">MCP Sync</span>')
         last_sync = settings.load().get("last_sync_iso")
         self._subtitle_label.set_text(f"Last sync: {last_sync}" if last_sync else "Not synced yet")
         self._subtitle_label.get_style_context().add_class("dim-label")
         self._subtitle_label.get_style_context().add_class("mcp-sync-subtitle")
-        header_box.pack_start(title_label, False, False, 0)
+        header_text.pack_start(title_label, False, False, 0)
         if self._subtitle_label.get_parent() is not None:
             self._subtitle_label.get_parent().remove(self._subtitle_label)
-        header_box.pack_start(self._subtitle_label, False, False, 0)
+        header_text.pack_start(self._subtitle_label, False, False, 0)
+        header_box.pack_start(header_text, True, True, 0)
+        if self._app_logo is not None:
+            app_logo = Gtk.Image.new_from_pixbuf(self._app_logo)
+            app_logo.set_valign(Gtk.Align.START)
+            header_box.pack_end(app_logo, False, False, 0)
         root.pack_start(header_box, False, False, 0)
 
         search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -656,6 +682,37 @@ class LinuxIndicatorApp:
             0,
         )
 
+        if self._pending_update is not None:
+            update_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            update_box.set_margin_start(MARGIN)
+            update_box.set_margin_end(MARGIN)
+            update_box.set_margin_top(4)
+            update_box.set_margin_bottom(4)
+            update_box.get_style_context().add_class("mcp-sync-update-banner")
+
+            update_label = Gtk.Label(
+                label=f"Update available: v{self._pending_update.version}", xalign=0
+            )
+            update_label.get_style_context().add_class("mcp-sync-update-label")
+            update_box.pack_start(update_label, False, False, 0)
+
+            update_box.pack_start(
+                self._action_button(
+                    f"Update Now (v{self._pending_update.version})",
+                    self._on_update_now_clicked,
+                ),
+                False,
+                False,
+                0,
+            )
+            update_box.pack_start(
+                self._action_button("Skip This Version", self._on_skip_version_clicked),
+                False,
+                False,
+                0,
+            )
+            root.pack_start(update_box, False, False, 0)
+
         settings_expander = Gtk.Expander(label="Settings")
         settings_expander.set_margin_start(MARGIN)
         settings_expander.set_margin_end(MARGIN)
@@ -670,23 +727,24 @@ class LinuxIndicatorApp:
         self._start_at_login_row.set_active(autostart.is_enabled())
         settings_box.pack_start(self._start_at_login_row.item, False, False, 0)
 
-        if self._hide_not_installed_row.item.get_parent() is not None:
-            self._hide_not_installed_row.item.get_parent().remove(self._hide_not_installed_row.item)
-        self._hide_not_installed_row.set_active(hide_not_installed)
-        settings_box.pack_start(self._hide_not_installed_row.item, False, False, 0)
-
-        settings_box.pack_start(self._action_button("Check for Updates", self._on_check_for_updates_clicked), False, False, 0)
         if self._auto_update_row.item.get_parent() is not None:
             self._auto_update_row.item.get_parent().remove(self._auto_update_row.item)
         self._auto_update_row.set_active(settings.is_auto_update_enabled())
         settings_box.pack_start(self._auto_update_row.item, False, False, 0)
 
-        if self._pending_update is not None:
-            settings_box.pack_start(
-                self._action_button(f"Update Now (v{self._pending_update.version})", self._on_update_now_clicked),
-                False, False, 0,
-            )
-            settings_box.pack_start(self._action_button("Skip This Version", self._on_skip_version_clicked), False, False, 0)
+        version_label = Gtk.Label(label=f"Version {__version__}", xalign=0)
+        version_label.set_margin_start(MARGIN)
+        version_label.set_margin_end(MARGIN)
+        version_label.get_style_context().add_class("dim-label")
+        version_label.get_style_context().add_class("mcp-sync-subtitle")
+        settings_box.pack_start(version_label, False, False, 0)
+
+        settings_box.pack_start(self._action_button("Check for Updates", self._on_check_for_updates_clicked), False, False, 0)
+
+        if self._hide_not_installed_row.item.get_parent() is not None:
+            self._hide_not_installed_row.item.get_parent().remove(self._hide_not_installed_row.item)
+        self._hide_not_installed_row.set_active(hide_not_installed)
+        settings_box.pack_start(self._hide_not_installed_row.item, False, False, 0)
 
         settings_box.pack_start(self._action_button("About / Documentation", self._open_documentation), False, False, 0)
         settings_expander.add(settings_box)
