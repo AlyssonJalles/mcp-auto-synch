@@ -37,13 +37,14 @@ def generate_ico(out_path: str = _ICO_PATH) -> str:
     return out_path
 
 
-def _pythonw() -> str:
-    return os.path.join(os.path.expanduser("~"), ".mcp-sync", "venv", "Scripts", "pythonw.exe")
-
-
 def _create_lnk(lnk_path: str, ico_path: str) -> None:
     """Create a .lnk via a PowerShell WScript.Shell one-liner."""
-    target = _pythonw().replace("\\", "\\\\")
+    from .autostart import ensure_named_executable
+
+    # Points at the "MCP Sync.exe" copy of pythonw.exe (not pythonw.exe
+    # itself) so double-clicking the shortcut also shows up as "MCP Sync" in
+    # Task Manager, not "Python".
+    target = ensure_named_executable().replace("\\", "\\\\")
     icon = ico_path.replace("\\", "\\\\")
     lnk = lnk_path.replace("\\", "\\\\")
     wd = os.path.join(os.path.expanduser("~"), ".mcp-sync").replace("\\", "\\\\")

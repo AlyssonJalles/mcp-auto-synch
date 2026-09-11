@@ -96,7 +96,10 @@ Write-Host "[+] Creating Start Menu shortcut and icon..."
 & "$VenvDir\Scripts\python.exe" -c "from mcp_sync.win_shortcuts import setup_all; setup_all()"
 
 Write-Host "[+] Starting MCP Synch..."
-Start-Process -FilePath "$VenvDir\Scripts\pythonw.exe" -ArgumentList "-m", "mcp_sync.app" `
+# "MCP Sync.exe" (created by autostart.enable() above) is a renamed copy of
+# pythonw.exe, so the app shows up as "MCP Sync" in Task Manager instead of
+# "Python".
+Start-Process -FilePath "$VenvDir\Scripts\MCP Sync.exe" -ArgumentList "-m", "mcp_sync.app" `
     -WorkingDirectory (Join-Path $env:USERPROFILE ".mcp-sync")
 
 Write-Host ""

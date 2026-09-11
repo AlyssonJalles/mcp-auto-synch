@@ -90,7 +90,7 @@ launchctl load -w ~/Library/LaunchAgents/com.mcpsync.app.plist
 **Windows**
 
 ```powershell
-& "$env:USERPROFILE\.mcp-sync\venv\Scripts\pythonw.exe" -m mcp_sync.app
+& "$env:USERPROFILE\.mcp-sync\venv\Scripts\MCP Sync.exe" -m mcp_sync.app
 ```
 
 It's a menu bar / system tray app, not a window — once running, look for its
@@ -274,8 +274,8 @@ pkill -f mcp_sync.app
 
 ```powershell
 # 2c. restart — Windows (PowerShell)
-Get-Process pythonw -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*mcp-sync*" } | Stop-Process
-& "$env:USERPROFILE\.mcp-sync\venv\Scripts\pythonw.exe" -m mcp_sync.app
+Get-Process pythonw, "MCP Sync" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*mcp-sync*" } | Stop-Process
+& "$env:USERPROFILE\.mcp-sync\venv\Scripts\MCP Sync.exe" -m mcp_sync.app
 ```
 
 On macOS, if you changed the app icon (`mcp_sync/assets/logos/_mcp_synch.png`)
