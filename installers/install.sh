@@ -64,9 +64,11 @@ fi
 echo "[+] Registering login item and starting the app..."
 # launchctl load -w with RunAtLoad already starts the app on macOS - do not
 # launch it a second time here, or you'll end up with two tray icons/processes.
-# -I (isolated mode) keeps the current directory off sys.path, so running this
-# from inside a clone can't shadow the just-installed package.
-"$VENV_DIR/bin/python3" -I - <<PYEOF
+# Run from ~/.mcp-sync: `python3 -` puts the current directory on sys.path, so
+# running this from inside a clone would import the source tree instead of the
+# just-installed package. (Not `python3 -I`: that also drops PYTHONIOENCODING.)
+cd "$HOME/.mcp-sync"
+"$VENV_DIR/bin/python3" - <<PYEOF
 from mcp_sync import autostart
 autostart.enable()
 PYEOF

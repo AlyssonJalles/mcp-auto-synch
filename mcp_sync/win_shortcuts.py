@@ -87,7 +87,7 @@ def setup_prog_files(ico_path: str | None = None) -> None:
         _create_lnk(lnk, ico)
     except (PermissionError, subprocess.CalledProcessError):
         print(
-            f"[!] Skipping {_PROG_FILES_DIR} — needs Administrator rights.\n"
+            f"[!] Skipping {_PROG_FILES_DIR} - needs Administrator rights.\n"
             "    Re-run the installer from an elevated PowerShell to enable."
         )
         return
@@ -96,9 +96,11 @@ def setup_prog_files(ico_path: str | None = None) -> None:
 
 def setup_all() -> None:
     """Generate the .ico and create both shortcuts."""
-    print("[+] Generating Windows icon (.ico)…")
+    # ASCII-only output: when stdout is redirected on Windows it falls back
+    # to the ANSI codepage (e.g. cp1252), which can't encode arrows/ellipses.
+    print("[+] Generating Windows icon (.ico)...")
     ico = generate_ico()
-    print(f"    → {ico}")
+    print(f"    -> {ico}")
     setup_start_menu(ico)
     setup_prog_files(ico)
 

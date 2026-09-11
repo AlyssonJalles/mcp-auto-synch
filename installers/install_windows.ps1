@@ -102,15 +102,25 @@ Assert-LastExit "Upgrading pip"
 & "$VenvDir\Scripts\python.exe" -m pip install --quiet "$RepoDir[windows-notifications]"
 Assert-LastExit "Installing MCP Sync"
 
-# -I (isolated mode) keeps the current directory off sys.path, so running
-# this from the repo root imports the installed package, not the source tree.
-Write-Host "[+] Registering Run-at-login..."
-& "$VenvDir\Scripts\python.exe" -I -c "from mcp_sync import autostart; autostart.enable()"
-Assert-LastExit "Registering Run-at-login"
+# Run the Python steps from ~/.mcp-sync: `python -c` puts the current
+# directory on sys.path, so running this from the repo root would import the
+# source tree instead of the installed package. (Not `python -I`: that also
+# drops PYTHONIOENCODING/PYTHONUTF8, breaking output encoding.)
+Push-Location (Join-Path $env:USERPROFILE ".mcp-sync")
+try {
+    Write-Host "[+] Registering Run-at-login..."
+    & "$VenvDir\Scripts\python.exe" -c "from mcp_sync import autostart; autostart.enable()"
+    Assert-LastExit "Registering Run-at-login"
 
-Write-Host "[+] Creating Start Menu shortcut and icon..."
-& "$VenvDir\Scripts\python.exe" -I -c "from mcp_sync.win_shortcuts import setup_all; setup_all()"
-Assert-LastExit "Creating shortcuts"
+    Write-Host "[+] Creating Start Menu shortcut and icon..."
+    & "$VenvDir\Scripts\python.exe" -c "from mcp_sync.win_shortcuts import setup_all; setup_all()"
+    # Shortcuts are cosmetic - warn instead of aborting the install.
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Creating shortcuts failed (exit code $LASTEXITCODE) - continuing without them."
+    }
+} finally {
+    Pop-Location
+}
 
 Write-Host "[+] Starting MCP Synch..."
 # "MCP Sync.exe" (created by autostart.enable() above) is a renamed copy of

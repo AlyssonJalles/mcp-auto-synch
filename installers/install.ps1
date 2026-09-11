@@ -111,6 +111,14 @@ $TmpWheel = Join-Path $env:TEMP $wheelAsset.name
 Write-Host "[+] Downloading $($wheelAsset.browser_download_url)"
 Invoke-WebRequest -Uri $wheelAsset.browser_download_url -OutFile $TmpWheel -UseBasicParsing
 
+# Run the Python steps from ~/.mcp-sync: `python -c` puts the current
+# directory on sys.path, so running this from inside a clone would import the
+# source tree instead of the just-installed package. (Not `python -I`: that
+# also drops PYTHONIOENCODING/PYTHONUTF8, breaking output encoding.)
+$AppDir = Join-Path $env:USERPROFILE ".mcp-sync"
+New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
+Push-Location $AppDir
+
 try {
     Write-Host "[+] Creating virtual environment at $VenvDir"
     & $PythonExe -m venv $VenvDir
@@ -120,23 +128,25 @@ try {
     & "$VenvDir\Scripts\python.exe" -m pip install --quiet "$TmpWheel[windows-notifications]"
     Assert-LastExit "Installing the MCP Sync wheel"
 
-    # -I (isolated mode) keeps the current directory off sys.path, so running
-    # this from inside a clone can't shadow the just-installed package.
     Write-Host "[+] Registering Run-at-login..."
-    & "$VenvDir\Scripts\python.exe" -I -c "from mcp_sync import autostart; autostart.enable()"
+    & "$VenvDir\Scripts\python.exe" -c "from mcp_sync import autostart; autostart.enable()"
     Assert-LastExit "Registering Run-at-login"
 
     Write-Host "[+] Creating Start Menu shortcut and icon..."
-    & "$VenvDir\Scripts\python.exe" -I -c "from mcp_sync.win_shortcuts import setup_all; setup_all()"
-    Assert-LastExit "Creating shortcuts"
+    & "$VenvDir\Scripts\python.exe" -c "from mcp_sync.win_shortcuts import setup_all; setup_all()"
+    # Shortcuts are cosmetic - warn instead of aborting the install.
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Creating shortcuts failed (exit code $LASTEXITCODE) - continuing without them."
+    }
 
     Write-Host "[+] Starting MCP Synch..."
     # "MCP Sync.exe" (created by autostart.enable() above) is a renamed copy of
     # pythonw.exe, so the app shows up as "MCP Sync" in Task Manager instead of
     # "Python".
     Start-Process -FilePath "$VenvDir\Scripts\MCP Sync.exe" -ArgumentList "-m", "mcp_sync.app" `
-        -WorkingDirectory (Join-Path $env:USERPROFILE ".mcp-sync")
+        -WorkingDirectory $AppDir
 } finally {
+    Pop-Location
     Remove-Item $TmpWheel -Force -ErrorAction SilentlyContinue
 }
 
