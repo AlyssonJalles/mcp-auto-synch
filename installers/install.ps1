@@ -125,7 +125,9 @@ try {
     Assert-LastExit "Creating the virtual environment"
     & "$VenvDir\Scripts\python.exe" -m pip install --quiet --upgrade pip
     Assert-LastExit "Upgrading pip"
-    & "$VenvDir\Scripts\python.exe" -m pip install --quiet "$TmpWheel[windows-notifications]"
+    # --force-reinstall: a re-published wheel can keep the same version number,
+    # and pip otherwise skips it as "already satisfied" over an existing venv.
+    & "$VenvDir\Scripts\python.exe" -m pip install --quiet --force-reinstall "$TmpWheel[windows-notifications]"
     Assert-LastExit "Installing the MCP Sync wheel"
 
     Write-Host "[+] Registering Run-at-login..."
