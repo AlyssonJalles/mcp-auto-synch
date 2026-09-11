@@ -7,6 +7,7 @@ import subprocess
 import sys
 import sysconfig
 
+from . import __version__
 from .platform_utils import IS_LINUX, IS_MAC, IS_WINDOWS, home
 
 _LABEL = "com.mcpsync.app"
@@ -140,9 +141,9 @@ def _macos_ensure_app_bundle() -> str:
     <key>CFBundleIdentifier</key>
     <string>com.mcpsync.app.bundle</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>{__version__}</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>{__version__}</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
@@ -238,6 +239,53 @@ def _linux_desktop_path() -> str:
     return os.path.join(home(), ".config", "autostart", "mcp-sync.desktop")
 
 
+def _linux_icon_path() -> str:
+    return os.path.join(home(), ".mcp-sync", "icons", "app.png")
+
+
+_BRAND_ICON_ASSET = os.path.join(os.path.dirname(__file__), "assets", "logos", "_mcp_synch.png")
+
+
+def _linux_ensure_icon() -> str:
+    """Writes the app-icon PNG used by both .desktop entries below and
+    returns its path.
+
+    Uses the bundled MCP Synch brand logo - the same artwork the macOS build
+    ships - rather than anything drawn at runtime, so the icon in GNOME's
+    Activities search matches the app's real identity across platforms. The
+    source art isn't square (1600x1515) while launcher icons are assumed to
+    be, so it's padded to a square canvas here; scaling a non-square image
+    into a square slot otherwise stretches it. Falls back to the generated
+    icon, and finally to a generic themed icon name, rather than ever
+    leaving Icon= pointing at a file that doesn't exist."""
+    path = _linux_icon_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    except OSError:
+        return "view-refresh"
+
+    try:
+        from PIL import Image
+
+        with Image.open(_BRAND_ICON_ASSET) as src:
+            logo = src.convert("RGBA")
+        side = max(logo.size)
+        canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        canvas.paste(logo, ((side - logo.width) // 2, (side - logo.height) // 2))
+        canvas.save(path, "PNG")
+        return path
+    except Exception:
+        pass
+
+    try:
+        from .tray_icon import build_app_icon
+
+        build_app_icon().save(path, "PNG")
+        return path
+    except Exception:
+        return "view-refresh"
+
+
 def _linux_enable() -> None:
     cmd = " ".join(_launch_command())
     entry = f"""[Desktop Entry]
@@ -245,7 +293,7 @@ Type=Application
 Name=MCP Sync
 Comment=Keeps MCP server configuration in sync across AI coding tools
 Exec={cmd}
-Icon=view-refresh
+Icon={_linux_ensure_icon()}
 Terminal=false
 X-GNOME-Autostart-enabled=true
 """
@@ -263,6 +311,46 @@ def _linux_disable() -> None:
 
 def _linux_is_enabled() -> bool:
     return os.path.exists(_linux_desktop_path())
+
+
+# ------------------------------------------------------- Linux app launcher
+#
+# Separate from the autostart entry above (which only controls whether the
+# app runs automatically at login): this is what makes MCP Sync show up as
+# a clickable icon in GNOME's Activities/app-grid search, regardless of the
+# "Start at Login" preference. Mirrors the spirit of
+# _macos_ensure_applications_shortcut - a discoverable, clickable launcher
+# separate from the login-item mechanism.
+
+
+def _linux_applications_desktop_path() -> str:
+    return os.path.join(home(), ".local", "share", "applications", "mcp-sync.desktop")
+
+
+def ensure_application_launcher() -> None:
+    """Writes/refreshes the Activities-grid .desktop entry. Safe and cheap
+    to call on every startup - it just overwrites the same file, so it
+    self-heals if the venv path or icon ever change (e.g. after a
+    reinstall)."""
+    if not IS_LINUX:
+        return
+    cmd = " ".join(_launch_command())
+    entry = f"""[Desktop Entry]
+Type=Application
+Name=MCP Sync
+Comment=Keeps MCP server configuration in sync across AI coding tools
+Exec={cmd}
+Icon={_linux_ensure_icon()}
+Terminal=false
+Categories=Utility;
+"""
+    path = _linux_applications_desktop_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(entry)
+    except OSError:
+        pass
 
 
 # ------------------------------------------------------------------ Windows
