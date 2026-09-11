@@ -8,9 +8,9 @@
 Um aplicativo leve, sempre ativo, que fica na **barra de menu / bandeja do
 sistema** e mantém a configuração dos seus **servidores MCP (Model Context
 Protocol)** sincronizada entre todas as ferramentas de IA instaladas na sua
-máquina — Codex, Claude Code, Cursor, Gemini CLI, GitHub Copilot CLI, VS Code,
-OpenCode, Windsurf, Antigravity, Zed, Continue, Roo Code, Claude Desktop,
-Cline, Kilo Code, Zoo Code, Amp, Kiro, Amazon Q, Goose, Warp, Trae, LM Studio
+máquina — VS Code, Cursor, Claude Code, Claude Desktop, GitHub Copilot CLI,
+Codex, Gemini CLI, Windsurf, Cline, Continue, Roo Code, OpenCode, Amazon Q,
+Warp, Zed, Amp, Kiro, Goose, Trae, Antigravity, LM Studio, Kilo Code, Zoo Code
 e Grok.
 
 Funciona em **macOS (Apple Silicon e Intel), Ubuntu/Linux e Windows**.
@@ -30,6 +30,8 @@ Funciona em **macOS (Apple Silicon e Intel), Ubuntu/Linux e Windows**.
 </table>
 
 ## Instalação
+
+![status](mcp_sync/assets/easy-to-install-pt-br.png)
 
 ### macOS / Linux — instalar direto do GitHub (sem clonar o repositório)
 

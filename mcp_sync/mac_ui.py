@@ -14,7 +14,6 @@ from __future__ import annotations
 import io
 import os
 import threading
-import time
 
 import AppKit
 import Foundation
@@ -30,22 +29,28 @@ from .tray_icon import build_icon, build_status_dot
 from .watcher import Watcher
 
 APP_NAME = "MCP"
+DOCS_URL = "https://github.com/AlyssonJalles/mcp-auto-synch"
 PERIODIC_SYNC_SECONDS = 60
 SELF_WRITE_SUPPRESS_SECONDS = 3.0
-UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
-STARTUP_UPDATE_CHECK_DELAY_SECONDS = 30
 MENUBAR_ICON_POINT_HEIGHT = 18.0  # standard macOS menu bar glyph height
 FLASH_ICON_SECONDS = 0.6  # how long the icon stays green after an actual write
+UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
+STARTUP_UPDATE_CHECK_DELAY_SECONDS = 30
 
 WIDTH = 320
 ROW_H = 44
-HEADER_H = 50
+HEADER_H = 60
 SEARCH_H = 26
 FOOTER_ROW_H = 36
+VERSION_ROW_H = 18
+CHECK_UPDATES_ROW_H = 30
+UPDATE_BANNER_H = 74
 SEP_H = 9
 MARGIN = 14
 MAX_POPOVER_HEIGHT = 780
 LIST_VIEWPORT_HEIGHT = 440
+APP_LOGO_HEIGHT = 45.0  # 50% larger than the original 30pt fit
+APP_LOGO_PNG = os.path.join(os.path.dirname(__file__), "assets", "logos", "_mcp_synch.png")
 
 
 def _pil_to_nsimage(img, point_height: "float | None" = None) -> "AppKit.NSImage":
@@ -89,9 +94,12 @@ class MCPMenuBarController(AppKit.NSObject):
         self._watcher = Watcher(on_change=self._on_files_changed)
         self._search_query = ""
         self._chrome_built = False
-        self._settings_expanded = False
         self._tool_order: list = []
         self._tool_paths: list = []
+        self._settings_open = False
+        self._pending_update: "updater.UpdateInfo | None" = None
+        self._version_status_text = f"Version {__version__}"
+        self._logo_cache: dict = {}
         self._search_field = AppKit.NSSearchField.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, 10, SEARCH_H))
         self._search_field.setPlaceholderString_("Search providers\u2026")
         self._search_field.setTarget_(self)
@@ -106,7 +114,6 @@ class MCPMenuBarController(AppKit.NSObject):
         button.setAction_("statusItemClicked:")
 
         self._popover = None
-        self._pending_update: updater.UpdateInfo | None = None
         self._view_controller = AppKit.NSViewController.alloc().init()
         self._rebuild_content()
         return self
@@ -120,11 +127,48 @@ class MCPMenuBarController(AppKit.NSObject):
         self._timer = Foundation.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
             PERIODIC_SYNC_SECONDS, self, "periodicSyncTick:", None, True
         )
-        self._update_timer = Foundation.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-            UPDATE_CHECK_INTERVAL_SECONDS, self, "periodicUpdateCheckTick:", None, True
-        )
         threading.Thread(target=lambda: self.sync_now(notify_result=False, backup=True), daemon=True).start()
-        threading.Thread(target=self._startup_update_check, daemon=True).start()
+        threading.Thread(target=self._update_check_loop, daemon=True).start()
+
+    def _update_check_loop(self) -> None:
+        self._stop.wait(STARTUP_UPDATE_CHECK_DELAY_SECONDS)
+        while not self._stop.is_set():
+            if settings.is_auto_update_enabled():
+                self._check_for_update(manual=False)
+            self._stop.wait(UPDATE_CHECK_INTERVAL_SECONDS)
+
+    def _check_for_update(self, manual: bool) -> None:
+        import datetime
+
+        if manual:
+            try:
+                info = updater.fetch_latest_release_info()
+            except updater.UpdateCheckError:
+                AppHelper.callAfter(self._show_check_failed)
+                return
+            settings.set_last_update_check_iso(datetime.datetime.now().isoformat(timespec="seconds"))
+            newer = updater.is_newer(info.version, __version__) and info.version != settings.get_skipped_version()
+            self._pending_update = info if newer else None
+            AppHelper.callAfter(self._show_check_result, not newer)
+        else:
+            info = updater.check_for_update(__version__)
+            if info is not None and info.version != settings.get_skipped_version():
+                self._pending_update = info
+                notify(APP_NAME, f"Update available: v{info.version}")
+                AppHelper.callAfter(self._rebuild_content)
+
+    def _show_check_failed(self) -> None:
+        notify(APP_NAME, "Couldn't check for updates. Check your connection.")
+        self._version_status_text = "Couldn't check — check your connection"
+        self._rebuild_content()
+
+    def _show_check_result(self, up_to_date: bool) -> None:
+        if up_to_date:
+            notify(APP_NAME, "You're up to date")
+            self._version_status_text = f"Version {__version__} — up to date"
+        else:
+            notify(APP_NAME, f"Update available: v{self._pending_update.version}")
+        self._rebuild_content()
 
     # ----------------------------------------------------------------- sync
 
@@ -173,66 +217,6 @@ class MCPMenuBarController(AppKit.NSObject):
 
     def periodicSyncTick_(self, timer) -> None:
         threading.Thread(target=lambda: self.sync_now(notify_result=False, always_rebuild=False), daemon=True).start()
-
-    # -------------------------------------------------------------- updates
-
-    def _startup_update_check(self) -> None:
-        time.sleep(STARTUP_UPDATE_CHECK_DELAY_SECONDS)
-        if settings.is_auto_update_enabled():
-            self._check_for_update(manual=False)
-
-    def periodicUpdateCheckTick_(self, timer) -> None:
-        if settings.is_auto_update_enabled():
-            threading.Thread(target=lambda: self._check_for_update(manual=False), daemon=True).start()
-
-    def _check_for_update(self, manual: bool) -> None:
-        if manual:
-            try:
-                info = updater.fetch_latest_release_info()
-            except updater.UpdateCheckError:
-                notify(APP_NAME, "Couldn't check for updates. Check your connection.")
-                return
-            import datetime
-
-            settings.set_last_update_check_iso(datetime.datetime.now().isoformat(timespec="seconds"))
-            if updater.is_newer(info.version, __version__) and info.version != settings.get_skipped_version():
-                self._pending_update = info
-                notify(APP_NAME, f"Update available: v{info.version}")
-                AppHelper.callAfter(self._rebuild_content)
-            else:
-                notify(APP_NAME, "You're up to date")
-        else:
-            info = updater.check_for_update(__version__)
-            if info is not None and info.version != settings.get_skipped_version():
-                self._pending_update = info
-                notify(APP_NAME, f"Update available: v{info.version}")
-                AppHelper.callAfter(self._rebuild_content)
-
-    def checkForUpdatesClicked_(self, sender) -> None:
-        threading.Thread(target=lambda: self._check_for_update(manual=True), daemon=True).start()
-
-    def updateNowClicked_(self, sender) -> None:
-        info = self._pending_update
-        if info is None:
-            return
-        threading.Thread(target=lambda: self._perform_update(info), daemon=True).start()
-
-    def _perform_update(self, info) -> None:
-        notify(APP_NAME, f"Downloading update v{info.version}…")
-        try:
-            updater.perform_update(info)  # never returns on success
-        except Exception as exc:
-            notify(APP_NAME, f"Update failed: {exc}")
-
-    def skipVersionClicked_(self, sender) -> None:
-        if self._pending_update is not None:
-            settings.set_skipped_version(self._pending_update.version)
-            self._pending_update = None
-            self._rebuild_content()
-
-    def toggleAutoUpdate_(self, sender) -> None:
-        enabled = sender.state() == AppKit.NSControlStateValueOn
-        settings.set_auto_update_enabled(enabled)
 
     def _set_menubar_icon(self, active: bool) -> None:
         img = _pil_to_nsimage(build_icon(active=active), point_height=MENUBAR_ICON_POINT_HEIGHT)
@@ -329,12 +313,48 @@ class MCPMenuBarController(AppKit.NSObject):
         settings.set_hide_not_installed(hidden)
         self._rebuild_content()
 
-    def toggleSettings_(self, sender) -> None:
-        self._settings_expanded = not self._settings_expanded
+    def toggleSettingsSection_(self, sender) -> None:
+        self._settings_open = not self._settings_open
+        self._rebuild_content()
+
+    def toggleAutoUpdate_(self, sender) -> None:
+        enabled = sender.state() == AppKit.NSControlStateValueOn
+        settings.set_auto_update_enabled(enabled)
+
+    def checkForUpdatesClicked_(self, sender) -> None:
+        sender.setEnabled_(False)
+        sender.setTitle_("Checking…")
+        threading.Thread(target=lambda: self._check_for_update(manual=True), daemon=True).start()
+
+    def updateNowClicked_(self, sender) -> None:
+        info = self._pending_update
+        if info is None:
+            return
+        sender.setEnabled_(False)
+        sender.setTitle_("Downloading…")
+        threading.Thread(target=lambda: self._perform_update(info), daemon=True).start()
+
+    def _perform_update(self, info) -> None:
+        try:
+            updater.perform_update(info)  # never returns on success
+        except Exception as exc:
+            AppHelper.callAfter(self._show_update_failed, str(exc))
+
+    def _show_update_failed(self, msg: str) -> None:
+        notify(APP_NAME, f"Update failed: {msg}")
+        self._rebuild_content()
+
+    def skipVersionClicked_(self, sender) -> None:
+        info = self._pending_update
+        if info is None:
+            return
+        settings.set_skipped_version(info.version)
+        self._pending_update = None
+        self._version_status_text = f"Version {__version__}"
         self._rebuild_content()
 
     def openDocumentation_(self, sender) -> None:
-        url = Foundation.NSURL.URLWithString_("https://github.com/AlyssonJalles/mcp-auto-synch")
+        url = Foundation.NSURL.URLWithString_(DOCS_URL)
         AppKit.NSWorkspace.sharedWorkspace().openURL_(url)
 
     def quitClicked_(self, sender) -> None:
@@ -343,6 +363,25 @@ class MCPMenuBarController(AppKit.NSObject):
         AppKit.NSApplication.sharedApplication().terminate_(self)
 
     # --------------------------------------------------------- view builder
+
+    def _app_logo(self) -> "AppKit.NSImage | None":
+        if "app" not in self._logo_cache:
+            try:
+                # Same wordmark artwork used elsewhere in the app (Start Menu
+                # shortcut icon on Windows) so the popover is recognizably
+                # this app's own, not a generic menu-bar glyph.
+                img = AppKit.NSImage.alloc().initByReferencingFile_(APP_LOGO_PNG)
+                if img is not None and img.isValid():
+                    size = img.size()
+                    if size.height:
+                        aspect = size.width / size.height
+                        img.setSize_(Foundation.NSMakeSize(APP_LOGO_HEIGHT * aspect, APP_LOGO_HEIGHT))
+                else:
+                    img = None
+                self._logo_cache["app"] = img
+            except Exception:
+                self._logo_cache["app"] = None
+        return self._logo_cache["app"]
 
     def _ensure_chrome(self) -> None:
         """Builds the parts of the UI that must never be destroyed/recreated
@@ -353,9 +392,17 @@ class MCPMenuBarController(AppKit.NSObject):
         if self._chrome_built:
             return
         self._root_view = AppKit.NSView.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, WIDTH, 10))
-        self._title_label = _label("MCP Sync", Foundation.NSMakeRect(MARGIN, 0, WIDTH - 2 * MARGIN, 20), size=15, bold=True)
+        logo_img = self._app_logo()
+        logo_w = logo_img.size().width if logo_img is not None else 0.0
+        title_w = WIDTH - 2 * MARGIN - (logo_w + 8 if logo_img is not None else 0)
+        self._app_logo_view = AppKit.NSImageView.alloc().initWithFrame_(
+            Foundation.NSMakeRect(WIDTH - MARGIN - logo_w, 0, logo_w, APP_LOGO_HEIGHT)
+        )
+        if logo_img is not None:
+            self._app_logo_view.setImage_(logo_img)
+        self._title_label = _label("MCP Sync", Foundation.NSMakeRect(MARGIN, 0, title_w, 20), size=15, bold=True)
         self._subtitle_label = _label(
-            "", Foundation.NSMakeRect(MARGIN, 0, WIDTH - 2 * MARGIN, 16), size=11, color=AppKit.NSColor.secondaryLabelColor()
+            "", Foundation.NSMakeRect(MARGIN, 0, title_w, 16), size=11, color=AppKit.NSColor.secondaryLabelColor()
         )
         self._top_separator = _separator(Foundation.NSMakeRect(MARGIN, 0, WIDTH - 2 * MARGIN, 1))
         self._list_view = AppKit.NSView.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, WIDTH, 10))
@@ -367,7 +414,7 @@ class MCPMenuBarController(AppKit.NSObject):
         self._list_scroll.setDrawsBackground_(False)
         self._list_scroll.setDocumentView_(self._list_view)
         self._footer_view = AppKit.NSView.alloc().initWithFrame_(Foundation.NSMakeRect(0, 0, WIDTH, FOOTER_ROW_H * 4 + SEP_H))
-        for subview in (self._title_label, self._subtitle_label, self._search_field, self._top_separator, self._list_scroll, self._footer_view):
+        for subview in (self._app_logo_view, self._title_label, self._subtitle_label, self._search_field, self._top_separator, self._list_scroll, self._footer_view):
             self._root_view.addSubview_(subview)
         self._view_controller.setView_(self._root_view)
         self._chrome_built = True
@@ -409,13 +456,7 @@ class MCPMenuBarController(AppKit.NSObject):
             blocks.append(("dim_label", f'No provider matches "{query}"', FOOTER_ROW_H))
 
         rows_h = sum(h for _, _, h in blocks)
-        settings_rows = 5 + (2 if self._pending_update is not None else 0)
-        footer_rows = 3 + (settings_rows if self._settings_expanded else 0)
-        footer_h = SEP_H + FOOTER_ROW_H * footer_rows
-        list_viewport_h = min(
-            LIST_VIEWPORT_HEIGHT,
-            max(ROW_H, MAX_POPOVER_HEIGHT - HEADER_H - SEARCH_H - 6 - SEP_H - footer_h),
-        )
+        list_h = max(rows_h, LIST_VIEWPORT_HEIGHT)
 
         for old_subview in list(self._list_view.subviews()):
             old_subview.removeFromSuperview()
@@ -443,46 +484,27 @@ class MCPMenuBarController(AppKit.NSObject):
 
         self._list_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, max(rows_h, LIST_VIEWPORT_HEIGHT)))
 
+        footer_blocks = self._build_footer_blocks(hide_not_installed)
+        footer_h = sum(h for _, _, h in footer_blocks)
         footer_y = footer_h
-        footer_y -= SEP_H
-        self._footer_view.addSubview_(_separator(Foundation.NSMakeRect(MARGIN, footer_y + 4, WIDTH - 2 * MARGIN, 1)))
-        footer_y -= FOOTER_ROW_H
-        self._footer_view.addSubview_(self._build_action_button("Sync Now", "syncNowClicked:", footer_y))
-        footer_y -= FOOTER_ROW_H
-        settings_title = "Settings ▾" if self._settings_expanded else "Settings ▸"
-        self._footer_view.addSubview_(self._build_action_button(settings_title, "toggleSettings:", footer_y))
-        if self._settings_expanded:
-            footer_y -= FOOTER_ROW_H
-            self._footer_view.addSubview_(self._build_switch_row("Start at Login", autostart.is_enabled(), "toggleStartAtLogin:", footer_y))
-            footer_y -= FOOTER_ROW_H
-            self._footer_view.addSubview_(self._build_switch_row("Hide not installed", hide_not_installed, "toggleHideNotInstalled:", footer_y))
-            footer_y -= FOOTER_ROW_H
-            self._footer_view.addSubview_(self._build_action_button("Check for Updates", "checkForUpdatesClicked:", footer_y))
-            footer_y -= FOOTER_ROW_H
-            self._footer_view.addSubview_(
-                self._build_switch_row("Auto-update", settings.is_auto_update_enabled(), "toggleAutoUpdate:", footer_y)
-            )
-            if self._pending_update is not None:
-                footer_y -= FOOTER_ROW_H
-                self._footer_view.addSubview_(
-                    self._build_action_button(f"Update Now (v{self._pending_update.version})", "updateNowClicked:", footer_y)
-                )
-                footer_y -= FOOTER_ROW_H
-                self._footer_view.addSubview_(self._build_action_button("Skip This Version", "skipVersionClicked:", footer_y))
-            footer_y -= FOOTER_ROW_H
-            self._footer_view.addSubview_(self._build_action_button("About / Documentation", "openDocumentation:", footer_y))
-        footer_y -= FOOTER_ROW_H
-        self._footer_view.addSubview_(self._build_action_button("Quit", "quitClicked:", footer_y))
+        for kind, payload, h in footer_blocks:
+            footer_y -= h
+            view = self._build_footer_block(kind, payload, footer_y, h)
+            if view is not None:
+                self._footer_view.addSubview_(view)
         self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h))
 
-        total_h = HEADER_H + SEARCH_H + 6 + SEP_H + list_viewport_h + footer_h
+        total_h = min(MAX_POPOVER_HEIGHT, HEADER_H + SEARCH_H + 6 + SEP_H + LIST_VIEWPORT_HEIGHT + footer_h)
 
         y2 = total_h
         y2 -= HEADER_H
-        self._title_label.setFrame_(Foundation.NSMakeRect(MARGIN, y2 + 24, WIDTH - 2 * MARGIN, 20))
+        self._title_label.setFrame_(Foundation.NSMakeRect(MARGIN, y2 + 24, self._title_label.frame().size.width, 20))
         last_sync = settings.load().get("last_sync_iso")
         self._subtitle_label.setStringValue_(f"Last sync: {last_sync}" if last_sync else "Not synced yet")
-        self._subtitle_label.setFrame_(Foundation.NSMakeRect(MARGIN, y2 + 4, WIDTH - 2 * MARGIN, 16))
+        self._subtitle_label.setFrame_(Foundation.NSMakeRect(MARGIN, y2 + 4, self._subtitle_label.frame().size.width, 16))
+        self._app_logo_view.setFrameOrigin_(
+            Foundation.NSMakePoint(self._app_logo_view.frame().origin.x, y2 + (HEADER_H - APP_LOGO_HEIGHT) / 2)
+        )
 
         y2 -= SEARCH_H + 6
         self._search_field.setFrame_(Foundation.NSMakeRect(MARGIN, y2, WIDTH - 2 * MARGIN, SEARCH_H))
@@ -490,9 +512,9 @@ class MCPMenuBarController(AppKit.NSObject):
         y2 -= SEP_H
         self._top_separator.setFrame_(Foundation.NSMakeRect(MARGIN, y2 + 4, WIDTH - 2 * MARGIN, 1))
 
-        list_viewport_y = y2 - list_viewport_h
-        self._list_scroll.setFrame_(Foundation.NSMakeRect(0, list_viewport_y, WIDTH, list_viewport_h))
-        self._list_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, max(rows_h, list_viewport_h)))
+        list_viewport_y = y2 - LIST_VIEWPORT_HEIGHT
+        self._list_scroll.setFrame_(Foundation.NSMakeRect(0, list_viewport_y, WIDTH, LIST_VIEWPORT_HEIGHT))
+        self._list_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, max(rows_h, LIST_VIEWPORT_HEIGHT)))
         self._footer_view.setFrame_(Foundation.NSMakeRect(0, 0, WIDTH, footer_h))
         footer_y = list_viewport_y - footer_h
         self._footer_view.setFrameOrigin_(Foundation.NSMakePoint(0, footer_y))
@@ -598,6 +620,119 @@ class MCPMenuBarController(AppKit.NSObject):
         switch.setAction_(action)
         row.addSubview_(switch)
         return row
+
+    # ------------------------------------------------------- settings + updates
+
+    def _build_footer_blocks(self, hide_not_installed: bool) -> list:
+        """Same top-down (kind, payload, height) block list the row list
+        uses: Sync Now, then the update banner (only while a newer version is
+        pending - the highest-priority signal in the footer, so it isn't
+        hidden behind a closed accordion), then the collapsible Settings
+        disclosure, then Quit."""
+        blocks = [
+            ("separator", None, SEP_H),
+            ("action_button", ("Sync Now", "syncNowClicked:"), FOOTER_ROW_H),
+        ]
+        if self._pending_update is not None:
+            blocks.append(("update_banner", self._pending_update, UPDATE_BANNER_H))
+        blocks.append(("settings_header", None, FOOTER_ROW_H))
+        if self._settings_open:
+            blocks.append(("switch", ("Start at Login", autostart.is_enabled(), "toggleStartAtLogin:"), FOOTER_ROW_H))
+            blocks.append(("switch", ("Auto-update", settings.is_auto_update_enabled(), "toggleAutoUpdate:"), FOOTER_ROW_H))
+            blocks.append(("version_label", None, VERSION_ROW_H))
+            blocks.append(("check_updates_button", None, CHECK_UPDATES_ROW_H))
+            blocks.append(("switch", ("Hide not installed", hide_not_installed, "toggleHideNotInstalled:"), FOOTER_ROW_H))
+            blocks.append(("action_button", ("About / Documentation", "openDocumentation:"), FOOTER_ROW_H))
+        blocks.append(("separator", None, SEP_H))
+        blocks.append(("action_button", ("Quit", "quitClicked:"), FOOTER_ROW_H))
+        return blocks
+
+    def _build_footer_block(self, kind: str, payload, y: float, h: float) -> "AppKit.NSView | None":
+        if kind == "separator":
+            return _separator(Foundation.NSMakeRect(MARGIN, y + 4, WIDTH - 2 * MARGIN, 1))
+        if kind == "action_button":
+            title, action = payload
+            return self._build_action_button(title, action, y)
+        if kind == "switch":
+            title, on, action = payload
+            return self._build_switch_row(title, on, action, y)
+        if kind == "settings_header":
+            return self._build_settings_header(y)
+        if kind == "version_label":
+            return self._build_version_label(y)
+        if kind == "check_updates_button":
+            return self._build_check_updates_button(y)
+        if kind == "update_banner":
+            return self._build_update_banner_view(payload, y, h)
+        return None
+
+    def _build_settings_header(self, y: float) -> "AppKit.NSButton":
+        # A borderless button rather than a plain label so the whole row is
+        # one click target for expanding/collapsing the accordion.
+        caret = "▾" if self._settings_open else "▸"
+        btn = AppKit.NSButton.alloc().initWithFrame_(Foundation.NSMakeRect(MARGIN, y + (FOOTER_ROW_H - 20) / 2, WIDTH - 2 * MARGIN, 20))
+        btn.setTitle_(f"{caret}  Settings")
+        btn.setBordered_(False)
+        btn.setAlignment_(AppKit.NSTextAlignmentLeft)
+        btn.setFont_(AppKit.NSFont.systemFontOfSize_(12.5))
+        btn.setTarget_(self)
+        btn.setAction_("toggleSettingsSection:")
+        return btn
+
+    def _build_version_label(self, y: float) -> "AppKit.NSTextField":
+        text = getattr(self, "_version_status_text", None) or f"Version {__version__}"
+        return _label(
+            text,
+            Foundation.NSMakeRect(MARGIN, y + 2, WIDTH - 2 * MARGIN, 14),
+            size=10,
+            color=AppKit.NSColor.secondaryLabelColor(),
+        )
+
+    def _build_check_updates_button(self, y: float) -> "AppKit.NSButton":
+        btn = AppKit.NSButton.alloc().initWithFrame_(Foundation.NSMakeRect(MARGIN, y + 2, WIDTH - 2 * MARGIN, 24))
+        btn.setTitle_("Check for Updates")
+        btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        btn.setFont_(AppKit.NSFont.systemFontOfSize_(11))
+        btn.setTarget_(self)
+        btn.setAction_("checkForUpdatesClicked:")
+        return btn
+
+    def _build_update_banner_view(self, info, y: float, h: float) -> "AppKit.NSView":
+        banner = AppKit.NSBox.alloc().initWithFrame_(Foundation.NSMakeRect(MARGIN, y + 4, WIDTH - 2 * MARGIN, h - 8))
+        banner.setBoxType_(AppKit.NSBoxCustom)
+        banner.setBorderType_(AppKit.NSNoBorder)
+        banner.setFillColor_(AppKit.NSColor.quaternaryLabelColor())
+        banner.setCornerRadius_(8)
+
+        content = banner.contentView()
+        inner_w = WIDTH - 2 * MARGIN - 16
+        content.addSubview_(
+            _label(
+                f"Update available: v{info.version} (have {__version__})",
+                Foundation.NSMakeRect(8, h - 8 - 20, inner_w, 16),
+                size=11,
+                color=AppKit.NSColor.controlAccentColor(),
+            )
+        )
+        update_btn = AppKit.NSButton.alloc().initWithFrame_(Foundation.NSMakeRect(8, 8, inner_w * 0.62, 24))
+        update_btn.setTitle_(f"Update Now (v{info.version})")
+        update_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        update_btn.setFont_(AppKit.NSFont.boldSystemFontOfSize_(11))
+        update_btn.setTarget_(self)
+        update_btn.setAction_("updateNowClicked:")
+        content.addSubview_(update_btn)
+
+        skip_btn = AppKit.NSButton.alloc().initWithFrame_(
+            Foundation.NSMakeRect(8 + inner_w * 0.62 + 8, 8, inner_w * 0.38 - 8, 24)
+        )
+        skip_btn.setTitle_("Skip")
+        skip_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        skip_btn.setFont_(AppKit.NSFont.systemFontOfSize_(11))
+        skip_btn.setTarget_(self)
+        skip_btn.setAction_("skipVersionClicked:")
+        content.addSubview_(skip_btn)
+
+        return banner
 
 
 class MacPopoverApp:
