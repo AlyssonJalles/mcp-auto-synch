@@ -43,7 +43,7 @@ except ValueError:
 
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 
-from . import autostart, settings, sync_engine
+from . import __version__, autostart, settings, sync_engine, updater
 from .groups import get_group, group_for_tool
 from .logos import get_badge
 from .notifier import notify
@@ -54,6 +54,8 @@ from .watcher import Watcher
 APP_NAME = "MCP"
 PERIODIC_SYNC_SECONDS = 60
 SELF_WRITE_SUPPRESS_SECONDS = 3.0
+UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
+STARTUP_UPDATE_CHECK_DELAY_SECONDS = 30
 FLASH_ICON_SECONDS = 0.6
 DOCS_URL = "https://github.com/AlyssonJalles/mcp-auto-synch"
 ROW_LOGO_SIZE = 28
@@ -239,6 +241,8 @@ class LinuxIndicatorApp:
         self._flash_source: int | None = None
         self._popover: Gtk.Window | None = None
         self._popover_focused = False
+        self._pending_update: updater.UpdateInfo | None = None
+        self._settings_expanded = False
 
         self._indicator = AppIndicator.Indicator.new(
             "mcp-sync", "", AppIndicator.IndicatorCategory.APPLICATION_STATUS
@@ -276,6 +280,7 @@ class LinuxIndicatorApp:
 
         self._start_at_login_row = SwitchRow("Start at Login", self._on_toggle_start_at_login)
         self._hide_not_installed_row = SwitchRow("Hide not installed", self._on_toggle_hide_not_installed)
+        self._auto_update_row = SwitchRow("Auto-update", self._on_toggle_auto_update)
 
     def _follow_system_color_scheme(self) -> None:
         """Makes the popover honour the desktop's light/dark preference.
@@ -333,12 +338,77 @@ class LinuxIndicatorApp:
             autostart.enable()
         self._watcher.start()
         GLib.timeout_add_seconds(PERIODIC_SYNC_SECONDS, self._periodic_sync_tick)
+        GLib.timeout_add_seconds(STARTUP_UPDATE_CHECK_DELAY_SECONDS, self._startup_update_check)
+        GLib.timeout_add_seconds(UPDATE_CHECK_INTERVAL_SECONDS, self._periodic_update_check_tick)
         threading.Thread(target=lambda: self.sync_now(notify_result=False, backup=True), daemon=True).start()
         Gtk.main()
 
     def _periodic_sync_tick(self) -> bool:
         threading.Thread(target=lambda: self.sync_now(notify_result=False), daemon=True).start()
         return True  # keep the GLib timeout running
+
+    # -------------------------------------------------------------- updates
+
+    def _startup_update_check(self) -> bool:
+        if settings.is_auto_update_enabled():
+            threading.Thread(target=lambda: self._check_for_update(manual=False), daemon=True).start()
+        return False  # one-shot
+
+    def _periodic_update_check_tick(self) -> bool:
+        if settings.is_auto_update_enabled():
+            threading.Thread(target=lambda: self._check_for_update(manual=False), daemon=True).start()
+        return True  # keep the GLib timeout running
+
+    def _check_for_update(self, manual: bool) -> None:
+        if manual:
+            try:
+                info = updater.fetch_latest_release_info()
+            except updater.UpdateCheckError:
+                notify(APP_NAME, "Couldn't check for updates. Check your connection.")
+                return
+            import datetime
+
+            settings.set_last_update_check_iso(datetime.datetime.now().isoformat(timespec="seconds"))
+            if updater.is_newer(info.version, __version__) and info.version != settings.get_skipped_version():
+                self._pending_update = info
+                notify(APP_NAME, f"Update available: v{info.version}")
+                GLib.idle_add(self._rebuild_popover_preserving_search)
+            else:
+                notify(APP_NAME, "You're up to date")
+        else:
+            info = updater.check_for_update(__version__)
+            if info is not None and info.version != settings.get_skipped_version():
+                self._pending_update = info
+                notify(APP_NAME, f"Update available: v{info.version}")
+                GLib.idle_add(self._rebuild_popover_preserving_search)
+
+    def _on_check_for_updates_clicked(self) -> None:
+        threading.Thread(target=lambda: self._check_for_update(manual=True), daemon=True).start()
+
+    def _on_update_now_clicked(self) -> None:
+        info = self._pending_update
+        if info is None:
+            return
+        threading.Thread(target=lambda: self._perform_update(info), daemon=True).start()
+
+    def _perform_update(self, info) -> None:
+        notify(APP_NAME, f"Downloading update v{info.version}…")
+        try:
+            updater.perform_update(info)  # never returns on success
+        except Exception as exc:
+            notify(APP_NAME, f"Update failed: {exc}")
+
+    def _on_skip_version_clicked(self) -> None:
+        if self._pending_update is not None:
+            settings.set_skipped_version(self._pending_update.version)
+            self._pending_update = None
+            GLib.idle_add(self._rebuild_popover_preserving_search)
+
+    def _on_toggle_auto_update(self, enabled: bool) -> None:
+        settings.set_auto_update_enabled(enabled)
+
+    def _on_settings_expander_toggled(self, expander, _param) -> None:
+        self._settings_expanded = expander.get_expanded()
 
     # ----------------------------------------------------------------- sync
 
@@ -440,6 +510,7 @@ class LinuxIndicatorApp:
             self._no_match_label,
             self._start_at_login_row.item,
             self._hide_not_installed_row.item,
+            self._auto_update_row.item,
         ):
             parent = widget.get_parent()
             if parent is not None:
@@ -585,17 +656,41 @@ class LinuxIndicatorApp:
             0,
         )
 
+        settings_expander = Gtk.Expander(label="Settings")
+        settings_expander.set_margin_start(MARGIN)
+        settings_expander.set_margin_end(MARGIN)
+        settings_expander.set_margin_top(4)
+        settings_expander.set_margin_bottom(4)
+        settings_expander.set_expanded(self._settings_expanded)
+        settings_expander.connect("notify::expanded", self._on_settings_expander_toggled)
+        settings_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
         if self._start_at_login_row.item.get_parent() is not None:
             self._start_at_login_row.item.get_parent().remove(self._start_at_login_row.item)
         self._start_at_login_row.set_active(autostart.is_enabled())
-        root.pack_start(self._start_at_login_row.item, False, False, 0)
+        settings_box.pack_start(self._start_at_login_row.item, False, False, 0)
 
         if self._hide_not_installed_row.item.get_parent() is not None:
             self._hide_not_installed_row.item.get_parent().remove(self._hide_not_installed_row.item)
         self._hide_not_installed_row.set_active(hide_not_installed)
-        root.pack_start(self._hide_not_installed_row.item, False, False, 0)
+        settings_box.pack_start(self._hide_not_installed_row.item, False, False, 0)
 
-        root.pack_start(self._action_button("About / Documentation", self._open_documentation), False, False, 0)
+        settings_box.pack_start(self._action_button("Check for Updates", self._on_check_for_updates_clicked), False, False, 0)
+        if self._auto_update_row.item.get_parent() is not None:
+            self._auto_update_row.item.get_parent().remove(self._auto_update_row.item)
+        self._auto_update_row.set_active(settings.is_auto_update_enabled())
+        settings_box.pack_start(self._auto_update_row.item, False, False, 0)
+
+        if self._pending_update is not None:
+            settings_box.pack_start(
+                self._action_button(f"Update Now (v{self._pending_update.version})", self._on_update_now_clicked),
+                False, False, 0,
+            )
+            settings_box.pack_start(self._action_button("Skip This Version", self._on_skip_version_clicked), False, False, 0)
+
+        settings_box.pack_start(self._action_button("About / Documentation", self._open_documentation), False, False, 0)
+        settings_expander.add(settings_box)
+        root.pack_start(settings_expander, False, False, 0)
         root.pack_start(self._action_button("Quit", self._quit), False, False, 0)
 
         if reset_search:

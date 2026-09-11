@@ -7,6 +7,7 @@ import subprocess
 import sys
 import sysconfig
 
+from . import __version__
 from .platform_utils import IS_LINUX, IS_MAC, IS_WINDOWS, home
 
 _LABEL = "com.mcpsync.app"
@@ -140,9 +141,9 @@ def _macos_ensure_app_bundle() -> str:
     <key>CFBundleIdentifier</key>
     <string>com.mcpsync.app.bundle</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>{__version__}</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>{__version__}</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>

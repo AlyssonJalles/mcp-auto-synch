@@ -8,7 +8,7 @@ import time
 
 import pystray
 
-from . import autostart, settings, sync_engine
+from . import __version__, autostart, settings, sync_engine, updater
 from .notifier import notify
 from .platform_utils import IS_MAC
 from .tray_icon import build_icon, build_tray_icon
@@ -17,6 +17,8 @@ from .watcher import Watcher
 APP_NAME = "MCP"
 PERIODIC_SYNC_SECONDS = 60
 SELF_WRITE_SUPPRESS_SECONDS = 3.0
+UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
+STARTUP_UPDATE_CHECK_DELAY_SECONDS = 30
 GREEN_DOT = "\U0001F7E2"  # 🟢
 GRAY_DOT = "\u26AA"  # ⚪
 OFF_DOT = "\u2B1B"  # ⬛
@@ -40,6 +42,7 @@ class MCPSyncApp:
         self._watcher = Watcher(on_change=self._on_files_changed)
         self._stop = threading.Event()
         self._busy_until = 0.0
+        self._pending_update: updater.UpdateInfo | None = None
 
     # ------------------------------------------------------------ lifecycle
 
@@ -48,6 +51,7 @@ class MCPSyncApp:
             autostart.enable()
         self._watcher.start()
         threading.Thread(target=self._periodic_sync_loop, daemon=True).start()
+        threading.Thread(target=self._update_check_loop, daemon=True).start()
         self.sync_now(notify_result=False, backup=True)
         self._icon.run()
 
@@ -56,6 +60,13 @@ class MCPSyncApp:
             self._stop.wait(PERIODIC_SYNC_SECONDS)
             if not self._stop.is_set():
                 self.sync_now(notify_result=False)
+
+    def _update_check_loop(self) -> None:
+        self._stop.wait(STARTUP_UPDATE_CHECK_DELAY_SECONDS)
+        while not self._stop.is_set():
+            if settings.is_auto_update_enabled():
+                self._check_for_update(manual=False)
+            self._stop.wait(UPDATE_CHECK_INTERVAL_SECONDS)
 
     def _on_files_changed(self, changed_paths: list[str]) -> None:
         if sync_engine.seconds_since_last_sync() < SELF_WRITE_SUPPRESS_SECONDS:
@@ -89,6 +100,55 @@ class MCPSyncApp:
             self._icon.icon = _fallback_tray_icon(active=busy)
         except Exception:
             pass
+
+    # -------------------------------------------------------------- updates
+
+    def _check_for_update(self, manual: bool) -> None:
+        if manual:
+            try:
+                info = updater.fetch_latest_release_info()
+            except updater.UpdateCheckError:
+                notify(APP_NAME, "Couldn't check for updates. Check your connection.")
+                return
+            import datetime
+
+            settings.set_last_update_check_iso(datetime.datetime.now().isoformat(timespec="seconds"))
+            if updater.is_newer(info.version, __version__) and info.version != settings.get_skipped_version():
+                self._pending_update = info
+                notify(APP_NAME, f"Update available: v{info.version}")
+            else:
+                notify(APP_NAME, "You're up to date")
+        else:
+            info = updater.check_for_update(__version__)
+            if info is not None and info.version != settings.get_skipped_version():
+                self._pending_update = info
+                notify(APP_NAME, f"Update available: v{info.version}")
+        self._refresh_menu()
+
+    def _on_check_for_updates(self, icon, item) -> None:
+        threading.Thread(target=lambda: self._check_for_update(manual=True), daemon=True).start()
+
+    def _on_update_now(self, icon, item) -> None:
+        info = self._pending_update
+        if info is None:
+            return
+        threading.Thread(target=lambda: self._perform_update(info), daemon=True).start()
+
+    def _perform_update(self, info: updater.UpdateInfo) -> None:
+        notify(APP_NAME, f"Downloading update v{info.version}…")
+        try:
+            updater.perform_update(info)  # never returns on success
+        except Exception as exc:
+            notify(APP_NAME, f"Update failed: {exc}")
+
+    def _on_skip_version(self, icon, item) -> None:
+        if self._pending_update is not None:
+            settings.set_skipped_version(self._pending_update.version)
+            self._pending_update = None
+            self._refresh_menu()
+
+    def _toggle_auto_update(self, icon, item) -> None:
+        settings.set_auto_update_enabled(not item.checked)
 
     # ----------------------------------------------------------------- menu
 
@@ -131,13 +191,29 @@ class MCPSyncApp:
 
         yield pystray.Menu.SEPARATOR
         yield pystray.MenuItem("Sync Now", lambda icon, item: self.sync_now(notify_result=True, always_notify=True, backup=True))
-        yield pystray.MenuItem(
-            "Start at Login",
-            self._toggle_start_at_login,
-            checked=lambda item: autostart.is_enabled(),
-        )
+        yield pystray.MenuItem("Settings", self._build_settings_submenu())
         yield pystray.Menu.SEPARATOR
         yield pystray.MenuItem("Quit", self._quit)
+
+    def _build_settings_submenu(self) -> pystray.Menu:
+        items = [
+            pystray.MenuItem(
+                "Start at Login",
+                self._toggle_start_at_login,
+                checked=lambda item: autostart.is_enabled(),
+            ),
+            pystray.MenuItem("Check for Updates", self._on_check_for_updates),
+            pystray.MenuItem(
+                "Auto-update",
+                self._toggle_auto_update,
+                checked=lambda item: settings.is_auto_update_enabled(),
+            ),
+        ]
+        if self._pending_update is not None:
+            items.append(pystray.Menu.SEPARATOR)
+            items.append(pystray.MenuItem(f"Update Now (v{self._pending_update.version})", self._on_update_now))
+            items.append(pystray.MenuItem("Skip This Version", self._on_skip_version))
+        return pystray.Menu(*items)
 
     def _make_toggle_handler(self, tool_name: str):
         def handler(icon, item):
@@ -182,7 +258,7 @@ def main() -> None:
         pass
 
     from . import single_instance
-    from .platform_utils import IS_LINUX, IS_MAC
+    from .platform_utils import IS_LINUX, IS_MAC, IS_WINDOWS
 
     # Every launcher click (app grid, .desktop entry, autostart firing while
     # the app is already up) runs this same entry point, and each process
@@ -218,6 +294,11 @@ def main() -> None:
             return
         except (ImportError, ValueError):
             pass
+    elif IS_WINDOWS:
+        from .windows_ui import WindowsTrayApp
+
+        WindowsTrayApp(instance=instance).run()
+        return
     MCPSyncApp().run()
 
 
