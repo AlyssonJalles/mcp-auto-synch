@@ -354,16 +354,161 @@ Categories=Utility;
 
 
 # ------------------------------------------------------------------ Windows
+#
+# Task Manager's process name and icon, like Activity Monitor's on macOS, are
+# read from the executed file itself - launching via the stock pythonw.exe is
+# why the app shows up there as "Python". See ensure_named_executable: a
+# renamed, re-stamped copy of the base interpreter lives in the venv's
+# Scripts/ folder, where it still finds the venv's pyvenv.cfg (one level up)
+# on its own - no PYTHONHOME/PYTHONPATH juggling as on macOS.
 
 _WIN_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 _WIN_VALUE_NAME = "MCPSync"
+_WIN_EXE_NAME = "MCP Sync.exe"
+
+
+def _windows_venv_scripts_dir() -> str:
+    return os.path.join(home(), ".mcp-sync", "venv", "Scripts")
+
+
+def _windows_stamp_version_info(exe_path: str) -> None:
+    """Rewrites the copy's embedded FileDescription/ProductName resource.
+
+    The rename alone isn't enough: Task Manager's Processes tab (unlike
+    Get-Process/the Details tab, which read the file name) displays the
+    FileDescription baked into the exe's own version resource - and a
+    plain file copy carries pythonw.exe's original resource, which says
+    "Python", right along with it. `win32verstamp` (shipped inside pywin32,
+    already a transitive dependency via win10toast) rewrites that resource
+    in place."""
+    import types
+
+    import win32verstamp
+
+    try:
+        vmaj, vmin, vsub = (int(p) for p in __version__.split(".")[:3])
+    except ValueError:
+        vmaj = vmin = vsub = 0
+    version = f"{vmaj}.{vmin}.{vsub}.0"
+
+    options = types.SimpleNamespace(
+        version=version, internal_name="MCP Sync", original_filename="MCP Sync.exe",
+        comments=None, company=None, description="MCP Sync", copyright=None,
+        trademarks=None, product="MCP Sync", dll=False, debug=False, verbose=False,
+    )
+    win32verstamp.stamp(exe_path, options)
+
+
+def _windows_embed_icon(exe_path: str) -> None:
+    """Replaces the copy's icon resources with the MCP Sync logo.
+
+    Explorer/Task Manager show whichever RT_GROUP_ICON resource is baked
+    into the exe, which is still CPython's own after a plain file copy -
+    there's no simpler "just set the icon" call on Windows, so this rebuilds
+    the icon-group resource from scratch: every existing RT_ICON/
+    RT_GROUP_ICON entry is deleted, then the same multi-resolution .ico used
+    for the Start Menu shortcut is split back into per-size RT_ICON entries
+    plus a GRPICONDIR (RT_GROUP_ICON) directory pointing at them - the
+    inverse of how Windows itself packs a .ico's ICONDIR."""
+    import struct
+
+    import win32api
+    import win32con
+
+    from .win_shortcuts import generate_ico
+
+    RT_ICON, RT_GROUP_ICON = win32con.RT_ICON, win32con.RT_GROUP_ICON
+
+    to_delete = []
+    h = win32api.LoadLibraryEx(exe_path, 0, win32con.LOAD_LIBRARY_AS_DATAFILE)
+    try:
+        types = win32api.EnumResourceTypes(h)
+        for rtype in (RT_ICON, RT_GROUP_ICON):
+            if rtype not in types:
+                continue
+            for name in win32api.EnumResourceNames(h, rtype):
+                for lang in win32api.EnumResourceLanguages(h, rtype, name):
+                    to_delete.append((rtype, name, lang))
+    finally:
+        win32api.FreeLibrary(h)
+
+    with open(generate_ico(), "rb") as fh:
+        ico = fh.read()
+    _, _, count = struct.unpack_from("<HHH", ico, 0)
+    entries = [struct.unpack_from("<BBBBHHII", ico, 6 + i * 16) for i in range(count)]
+
+    group = struct.pack("<HHH", 0, 1, count)
+    icons = []
+    for new_id, (w, ht, colors, _res, planes, bpp, size, offset) in enumerate(entries, start=1):
+        icons.append((new_id, ico[offset:offset + size]))
+        group += struct.pack("<BBBBHHIH", w, ht, colors, 0, planes, bpp, size, new_id)
+
+    handle = win32api.BeginUpdateResource(exe_path, False)
+    try:
+        for rtype, name, lang in to_delete:
+            win32api.UpdateResource(handle, rtype, name, None, lang)
+        for new_id, data in icons:
+            win32api.UpdateResource(handle, RT_ICON, new_id, data, 0)
+        win32api.UpdateResource(handle, RT_GROUP_ICON, 1, group, 0)
+    except Exception:
+        win32api.EndUpdateResource(handle, True)  # discard the half-done edit
+        raise
+    win32api.EndUpdateResource(handle, False)
+
+
+def _windows_runtime_dlls() -> list[str]:
+    import glob
+
+    return [p for pattern in ("python3*.dll", "vcruntime*.dll")
+            for p in glob.glob(os.path.join(sys.base_prefix, pattern))]
+
+
+def ensure_named_executable() -> str:
+    """Returns the path to a "MCP Sync.exe" copy of the *base* interpreter's
+    pythonw.exe, (re)creating it if missing or stale. Falls back to the venv's
+    own pythonw.exe if the copy can't be made (e.g. a Microsoft Store Python
+    whose files can't be read) - a wrong process name is a much smaller
+    problem than failing to launch at all.
+
+    Not the venv's Scripts\\pythonw.exe: that's only a redirector stub that
+    spawns the base interpreter as a child process, and the child - which
+    owns the tray icon and Tk windows - is what Task Manager takes the icon
+    from. A real interpreter placed in Scripts\\ still finds pyvenv.cfg one
+    level up (the pre-3.7.2 venv layout), so it runs with this venv's
+    site-packages; it just needs the runtime DLLs next to it to load."""
+    scripts_dir = _windows_venv_scripts_dir()
+    fallback = os.path.join(scripts_dir, "pythonw.exe")
+    source = os.path.join(sys.base_prefix, "pythonw.exe")
+    target = os.path.join(scripts_dir, _WIN_EXE_NAME)
+    dlls = _windows_runtime_dlls()
+    try:
+        fresh = (
+            os.path.exists(target)
+            and os.path.getmtime(target) >= os.path.getmtime(source)
+            and all(os.path.exists(os.path.join(scripts_dir, os.path.basename(d))) for d in dlls)
+        )
+        if not fresh:
+            for dll in dlls:
+                shutil.copy2(dll, os.path.join(scripts_dir, os.path.basename(dll)))
+            shutil.copy2(source, target)
+            try:
+                _windows_stamp_version_info(target)
+            except Exception:
+                pass  # correctly-named-but-unstamped still beats pythonw.exe
+            try:
+                _windows_embed_icon(target)
+            except Exception:
+                pass  # right name, wrong icon still beats pythonw.exe's
+        return target
+    except OSError:
+        return fallback
 
 
 def _windows_enable() -> None:
     import winreg  # type: ignore
 
-    pythonw = sys.executable.replace("python.exe", "pythonw.exe")
-    command = f'"{pythonw}" -m mcp_sync.app'
+    exe = ensure_named_executable()
+    command = f'"{exe}" -m mcp_sync.app'
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, _WIN_RUN_KEY)
     winreg.SetValueEx(key, _WIN_VALUE_NAME, 0, winreg.REG_SZ, command)
     winreg.CloseKey(key)

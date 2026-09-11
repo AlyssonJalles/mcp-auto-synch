@@ -1,12 +1,15 @@
-# Installs MCP Sync as a tray app on Windows.
-# Run from PowerShell: powershell -ExecutionPolicy Bypass -File installers\install_windows.ps1
+# Installs the latest released version of MCP Sync as a tray app directly
+# from GitHub Releases - no git clone required.
+#
+# Usage (PowerShell):
+#   iwr -useb https://raw.githubusercontent.com/AlyssonJalles/mcp-auto-synch/main/installers/install.ps1 | iex
 #
 # Python 3.11 is installed automatically if not found on PATH.
 
 $ErrorActionPreference = "Stop"
 
-$RepoDir  = Split-Path -Parent $PSScriptRoot
-$VenvDir  = Join-Path $env:USERPROFILE ".mcp-sync\venv"
+$Repo           = "AlyssonJalles/mcp-auto-synch"
+$VenvDir        = Join-Path $env:USERPROFILE ".mcp-sync\venv"
 $PythonMinMajor = 3
 $PythonMinMinor = 9
 
@@ -42,7 +45,7 @@ function Install-Python {
     Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
 
     Write-Host "[+] Installing Python $pythonVersion silently (this may take a minute)..."
-    $args = @(
+    $installArgs = @(
         "/quiet",
         "InstallAllUsers=0",          # per-user install (no admin needed)
         "PrependPath=1",              # add to PATH
@@ -50,7 +53,7 @@ function Install-Python {
         "Include_launcher=1",
         "Include_test=0"
     )
-    $proc = Start-Process -FilePath $installerPath -ArgumentList $args -Wait -PassThru
+    $proc = Start-Process -FilePath $installerPath -ArgumentList $installArgs -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
         Write-Host "[!] Python installer exited with code $($proc.ExitCode). Please install Python 3.9+ manually from https://www.python.org/downloads/ and re-run."
         exit 1
@@ -67,7 +70,7 @@ function Install-Python {
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-Write-Host "[+] Installing MCP Sync from: $RepoDir"
+Write-Host "[+] Installing MCP Sync from the latest GitHub release of $Repo"
 
 $PythonExe = Find-Python
 if (-not $PythonExe) {
@@ -77,33 +80,50 @@ if (-not $PythonExe) {
 
 if (-not $PythonExe) {
     Write-Host "[!] Could not locate a Python 3.9+ executable even after installation."
-    Write-Host "    Please open a NEW PowerShell window and re-run this script,"
+    Write-Host "    Please open a NEW PowerShell window and re-run this command,"
     Write-Host "    or install Python manually from https://www.python.org/downloads/"
     exit 1
 }
 
 Write-Host "[+] Using Python: $PythonExe"
 
-Write-Host "[+] Creating virtual environment at $VenvDir"
-& $PythonExe -m venv $VenvDir
-& "$VenvDir\Scripts\python.exe" -m pip install --quiet --upgrade pip
-& "$VenvDir\Scripts\python.exe" -m pip install --quiet "$RepoDir[windows-notifications]"
+Write-Host "[+] Looking up latest release of $Repo..."
+$release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing
+$wheelAsset = $release.assets | Where-Object { $_.name -like "*.whl" } | Select-Object -First 1
 
-Write-Host "[+] Registering Run-at-login..."
-& "$VenvDir\Scripts\python.exe" -c "from mcp_sync import autostart; autostart.enable()"
+if (-not $wheelAsset) {
+    Write-Host "[!] Could not find a .whl asset on the latest GitHub release. Aborting."
+    exit 1
+}
 
-Write-Host "[+] Creating Start Menu shortcut and icon..."
-& "$VenvDir\Scripts\python.exe" -c "from mcp_sync.win_shortcuts import setup_all; setup_all()"
+$TmpWheel = Join-Path $env:TEMP $wheelAsset.name
+Write-Host "[+] Downloading $($wheelAsset.browser_download_url)"
+Invoke-WebRequest -Uri $wheelAsset.browser_download_url -OutFile $TmpWheel -UseBasicParsing
 
-Write-Host "[+] Starting MCP Synch..."
-# "MCP Sync.exe" (created by autostart.enable() above) is a renamed copy of
-# pythonw.exe, so the app shows up as "MCP Sync" in Task Manager instead of
-# "Python".
-Start-Process -FilePath "$VenvDir\Scripts\MCP Sync.exe" -ArgumentList "-m", "mcp_sync.app" `
-    -WorkingDirectory (Join-Path $env:USERPROFILE ".mcp-sync")
+try {
+    Write-Host "[+] Creating virtual environment at $VenvDir"
+    & $PythonExe -m venv $VenvDir
+    & "$VenvDir\Scripts\python.exe" -m pip install --quiet --upgrade pip
+    & "$VenvDir\Scripts\python.exe" -m pip install --quiet "$TmpWheel[windows-notifications]"
+
+    Write-Host "[+] Registering Run-at-login..."
+    & "$VenvDir\Scripts\python.exe" -c "from mcp_sync import autostart; autostart.enable()"
+
+    Write-Host "[+] Creating Start Menu shortcut and icon..."
+    & "$VenvDir\Scripts\python.exe" -c "from mcp_sync.win_shortcuts import setup_all; setup_all()"
+
+    Write-Host "[+] Starting MCP Synch..."
+    # "MCP Sync.exe" (created by autostart.enable() above) is a renamed copy of
+    # pythonw.exe, so the app shows up as "MCP Sync" in Task Manager instead of
+    # "Python".
+    Start-Process -FilePath "$VenvDir\Scripts\MCP Sync.exe" -ArgumentList "-m", "mcp_sync.app" `
+        -WorkingDirectory (Join-Path $env:USERPROFILE ".mcp-sync")
+} finally {
+    Remove-Item $TmpWheel -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host ""
 Write-Host "[OK] MCP Synch installed successfully!"
 Write-Host "     - System tray: look for the copper 'MCP' icon (may be under '^')"
 Write-Host "     - Start Menu: search for 'MCP Synch'"
-Write-Host "     - To uninstall: installers\uninstall_windows.ps1"
+Write-Host "     - To uninstall: installers\uninstall_windows.ps1 (from a clone), or delete $VenvDir and remove the Run-at-login entry"

@@ -258,7 +258,7 @@ def main() -> None:
         pass
 
     from . import single_instance
-    from .platform_utils import IS_LINUX, IS_MAC
+    from .platform_utils import IS_LINUX, IS_MAC, IS_WINDOWS
 
     # Every launcher click (app grid, .desktop entry, autostart firing while
     # the app is already up) runs this same entry point, and each process
@@ -294,6 +294,11 @@ def main() -> None:
             return
         except (ImportError, ValueError):
             pass
+    elif IS_WINDOWS:
+        from .windows_ui import WindowsTrayApp
+
+        WindowsTrayApp(instance=instance).run()
+        return
     MCPSyncApp().run()
 
 

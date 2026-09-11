@@ -216,6 +216,68 @@ def build_icon(active: bool = False) -> Image.Image:
     return img
 
 
+def build_windows_tray_icon(active: bool = False) -> Image.Image:
+    """Square badge icon for the Windows system tray.
+
+    Renders 'MCP' text centered on a dark rounded-square background so the
+    label stays legible at the ~20px height Windows displays tray icons at.
+    Active (syncing) state uses a green background instead of dark blue."""
+    size = 64
+    bg = (40, 170, 90, 255) if active else (201, 115, 88, 255)  # copper brand color
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    margin = 3
+    draw.rounded_rectangle((margin, margin, size - margin, size - margin), radius=12, fill=bg)
+    font = _load_font(22)
+    text = "MCP"
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    tx = (size - tw) // 2 - bbox[0]
+    ty = (size - th) // 2 - bbox[1]
+    draw.text((tx, ty), text, font=font, fill=(255, 255, 255, 255))
+    return img
+
+
+_TOGGLE_ON = (201, 115, 88, 255)  # copper, matches the tray badge
+_TOGGLE_OFF = (72, 72, 74, 255)
+_TOGGLE_DISABLED = (58, 58, 60, 255)
+_KNOB = (255, 255, 255, 255)
+_KNOB_DISABLED = (142, 142, 147, 255)
+
+
+@lru_cache(maxsize=8)
+def build_toggle(on: bool, enabled: bool = True, width: int = 40, height: int = 22) -> Image.Image:
+    """An iOS-style pill switch, for UIs whose toolkit has no switch widget.
+
+    Drawn at _SUPERSAMPLE x and downscaled with LANCZOS for the same reason
+    build_tray_icon does it: Pillow's ellipse/rectangle primitives don't
+    antialias, and a pill drawn directly at 22px has visibly stair-stepped
+    ends and knob. Tkinter's Canvas has the same limitation with no
+    supersampling escape hatch, which is why the switch is an image there
+    rather than canvas shapes."""
+    s = _SUPERSAMPLE
+    w, h = width * s, height * s
+    r = h // 2
+    if not enabled:
+        track = _TOGGLE_DISABLED
+        knob = _KNOB_DISABLED
+    else:
+        track = _TOGGLE_ON if on else _TOGGLE_OFF
+        knob = _KNOB
+
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((0, 0, w - 1, h - 1), radius=r, fill=track)
+
+    pad = max(1, round(2 * s))
+    kr = r - pad
+    kcx = (w - r) if on else r
+    draw.ellipse((kcx - kr, r - kr, kcx + kr, r + kr), fill=knob)
+
+    return img.resize((width, height), Image.LANCZOS)
+
+
 def build_status_dot(color_name: str) -> Image.Image:
     """A small colored circle, used as a status indicator image (e.g. in the
     macOS popover UI). color_name: "green" | "gray" | "off"."""

@@ -39,8 +39,16 @@ Funciona em **macOS (Apple Silicon e Intel), Ubuntu/Linux e Windows**.
 curl -fsSL https://raw.githubusercontent.com/AlyssonJalles/mcp-auto-synch/main/installers/install.sh | bash
 ```
 
-Isso baixa o último [Release do GitHub](https://github.com/AlyssonJalles/mcp-auto-synch/releases)
-e instala — mesmo resultado dos scripts abaixo, sem precisar clonar o repositório.
+### Windows — instalar direto do GitHub (sem clonar o repositório)
+
+No PowerShell:
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/AlyssonJalles/mcp-auto-synch/main/installers/install.ps1 | iex
+```
+
+Ambos os comandos baixam o último [Release do GitHub](https://github.com/AlyssonJalles/mcp-auto-synch/releases)
+e instalam — mesmo resultado dos scripts abaixo, sem precisar clonar o repositório.
 
 ### macOS (a partir de um clone local)
 
@@ -58,7 +66,7 @@ Requer bandeja do sistema / AppIndicator (habilitado por padrão no GNOME do
 Ubuntu). Se o ícone não aparecer, veja a mensagem que o instalador imprime
 sobre o pacote `gir1.2-ayatana-appindicator3-0.1`.
 
-### Windows
+### Windows (a partir de um clone local)
 
 No PowerShell:
 
@@ -91,7 +99,7 @@ launchctl load -w ~/Library/LaunchAgents/com.mcpsync.app.plist
 
 **Windows**
 ```powershell
-& "$env:USERPROFILE\.mcp-sync\venv\Scripts\pythonw.exe" -m mcp_sync.app
+& "$env:USERPROFILE\.mcp-sync\venv\Scripts\MCP Sync.exe" -m mcp_sync.app
 ```
 
 É um app de barra de menu / bandeja do sistema, não uma janela — depois de
@@ -284,8 +292,8 @@ pkill -f mcp_sync.app
 
 ```powershell
 # 2c. reiniciar — Windows (PowerShell)
-Get-Process pythonw -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*mcp-sync*" } | Stop-Process
-& "$env:USERPROFILE\.mcp-sync\venv\Scripts\pythonw.exe" -m mcp_sync.app
+Get-Process pythonw, "MCP Sync" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*mcp-sync*" } | Stop-Process
+& "$env:USERPROFILE\.mcp-sync\venv\Scripts\MCP Sync.exe" -m mcp_sync.app
 ```
 
 No macOS, se você alterou o ícone do app
