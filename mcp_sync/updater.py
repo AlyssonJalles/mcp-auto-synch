@@ -138,6 +138,18 @@ def _spawn_detached(cmd: list[str]) -> None:
 
 def restart_app() -> None:
     """Never returns - always ends this process."""
+    # Drop the single-instance claim first, if this build has one: the
+    # successor starts while this process is still alive, and would
+    # otherwise find the slot taken, decide an instance is already running,
+    # and exit - leaving nothing running at all. Releasing here rather than
+    # relying on process exit closes that race.
+    try:
+        from . import single_instance
+
+        single_instance.release_active()
+    except ImportError:
+        pass
+
     if IS_MAC and autostart.is_enabled():
         # Rebuilds the .app bundle and does the launchctl unload/load -w
         # cycle that already restarts a KeepAlive=true LaunchAgent - reusing
