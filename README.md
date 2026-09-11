@@ -36,8 +36,16 @@ Runs on **macOS (Apple Silicon and Intel), Ubuntu/Linux, and Windows**.
 curl -fsSL https://raw.githubusercontent.com/AlyssonJalles/mcp-auto-synch/main/installers/install.sh | bash
 ```
 
-This downloads the latest [GitHub Release](https://github.com/AlyssonJalles/mcp-auto-synch/releases)
-wheel and installs it — same result as the scripts below, without cloning the repo.
+### Windows — install directly from GitHub (no clone needed)
+
+In PowerShell:
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/AlyssonJalles/mcp-auto-synch/main/installers/install.ps1 | iex
+```
+
+Both commands download the latest [GitHub Release](https://github.com/AlyssonJalles/mcp-auto-synch/releases)
+wheel and install it — same result as the scripts below, without cloning the repo.
 
 ### macOS (from a local clone)
 
@@ -55,7 +63,7 @@ Requires a system tray/AppIndicator (enabled by default on Ubuntu's GNOME).
 If the icon doesn't show up, see the note the installer prints about
 `gir1.2-ayatana-appindicator3-0.1`.
 
-### Windows
+### Windows (from a local clone)
 
 In PowerShell:
 
